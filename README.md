@@ -13,14 +13,42 @@ Launches a local LLM model server using [splash](https://github.com/inco-ai/spla
 ./start_splash.sh --help
 ```
 
-| Option                 | Default                                   | Description                                        |
-| ---------------------- | ----------------------------------------- | -------------------------------------------------- |
-| `-m, --model`          | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                     |
-| `-i, --idle-release`   | `90s`                                     | Time until idle model is released from memory      |
-| `-c, --max-cache-disk` | `16G`                                     | Maximum disk cache size for model weights          |
-| `-y, --yes`            | —                                         | Skip interactive prompts, use defaults             |
-| `-s, --skip-update`    | —                                         | Skip the Homebrew / splash install-or-update check |
-| `--`                   | —                                         | Pass extra arguments directly to `splash serve`    |
+| Option                      | Default                                   | Description                                       |
+| --------------------------- | ----------------------------------------- | ------------------------------------------------- |
+| `-m, --model MODEL`         | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                    |
+| `-i, --idle-release DURATION` | `90s`                                   | Time until idle model is released from memory     |
+| `-c, --max-cache-disk SIZE` | `16G`                                     | Maximum disk cache size for model weights         |
+| `-a, --agent AGENT`         | `none`                                    | Agent to launch (`none`/`opencode`/`hermes`/`claude`) |
+| `-w, --ready-timeout SECONDS` | `0` (wait forever)                      | How long to wait for the server to become ready before launching an agent |
+| `-y, --yes`                 | —                                         | Skip interactive prompts, use defaults            |
+| `-s, --skip-update`         | —                                         | Skip the Homebrew / splash install-or-update check |
+| `--no-save`                 | —                                         | Do not remember the chosen values this run       |
+| `--forget`                  | —                                         | Delete the remembered values and exit            |
+| `--`                        | —                                         | Pass extra arguments directly to `splash serve`   |
+
+### Remembered settings
+
+Every run resolves values in this order — **CLI options win, then the
+remembered `.env`, then the built-in defaults** — and saves the final model,
+idle release, cache size, and agent back to `.env`:
+
+```
+./start_splash.sh -m unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL -c 32G
+# next run: those values are now the defaults shown in the prompts
+./start_splash.sh
+```
+
+`.env` lives next to the script and is gitignored. You can edit it by hand
+(say, to settle on a model), delete it to start fresh, or point the script at
+another file with `SPLASH_CONTROL_ENV=/path/to/.env`. Use `--no-save` for a
+one-off run you don't want remembered, and `--forget` to wipe the file.
+
+A commented template is checked in as [`.envexample`](./.envexample) — copy it
+to `.env` to pre-seed your preferred values:
+
+```
+cp .envexample .env
+```
 
 ### Examples
 
@@ -34,9 +62,17 @@ Launches a local LLM model server using [splash](https://github.com/inco-ai/spla
 # Skip update check (use when splash is already installed)
 ./start_splash.sh -s -m unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL -c 32G
 
+# Select an agent non-interactively
+./start_splash.sh -a opencode
+
+# Launch splash in background (no agent)
+./start_splash.sh -a none
+
 # Pass extra flags to splash serve
 ./start_splash.sh -- --port 8080
 ```
+
+When splash starts, it runs in the background. If no agent is selected, splash remains running and you can press Ctrl+Z to suspend it or kill its PID to stop. If an agent is chosen (via prompt or `-a`), the script first waits until the server reports ready (its `/ready` endpoint answers `200`, which happens once the model has finished loading) and only then launches the agent. This avoids `splash <agent>` failing with "No ready Splash server" while the model is still loading. The wait has no timeout by default; pass `-w SECONDS` to bound it. If splash is served on a non-default port (via `--port` or `SPLASH_PORT`), the script passes that port on to the agent.
 
 ## Requirements
 

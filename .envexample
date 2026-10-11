@@ -1,0 +1,23 @@
+# splashControl example settings file.
+# Copy this to `.env` (or let start_splash.sh create one automatically) to
+# fix your preferred values. Keys and defaults match start_splash.sh; values
+# resolve CLI options > .env > built-in defaults, then are written back here.
+#
+# Safe to edit by hand. Manually edit `.env` if you have one.
+
+# Model to serve (splash model identifier, e.g. from huggingface.co)
+MODEL=unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+
+# Previously entered models, most recent first, separated by ";".
+# start_splash.sh shows these as numbered options in the model menu and
+# updates this automatically; edit or trim it by hand if you like.
+MODEL_HISTORY=unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+
+# Time until the idle model is released from memory (Go duration string)
+IDLE_RELEASE=90s
+
+# Maximum disk cache size for model weights
+MAX_CACHE_DISK=16G
+
+# Agent to launch after splash starts (none/opencode/hermes/claude)
+AGENT=none
