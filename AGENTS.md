@@ -15,6 +15,7 @@ Single-script repo: `start_splash.sh` launches `splash serve` with overridable s
 | `-i, --idle-release` | `90s` | Idle release duration |
 | `-c, --max-cache-disk` | `16G` | Max disk cache size |
 | `-a, --agent` | `none` | Agent to launch (`none`/`opencode`/`hermes`/`claude`) |
+| `-l, --live` | — | Stream splash output directly to the terminal |
 | `-w, --ready-timeout` | `0` (forever) | Seconds to wait for the server's `/ready` before launching an agent |
 | `-y, --yes` | — | Skip prompts, use defaults |
 | `-s, --skip-update` | — | Skip brew/splash install check |
@@ -33,6 +34,14 @@ back to repo-local `.env` (gitignored). A commented template is checked in as
 3. Loads remembered values from `.env` (if any), then prompts for model, idle release, cache disk, and agent (press Enter for defaults, or use `-y`/`-a` to skip). The resolved values are saved back to `.env`
 4. Launches `splash serve` in the background with `--language-only --max-cache-disk ... --model ...`
 5. If an agent is chosen (via prompt or `-a`), waits until the server's `/ready` endpoint answers (`splash` reports "Ready" once the model is loaded), then launches the agent with the resolved port
+
+## Splash output
+
+- Default: splash's stdout/stderr is captured to `splash.log`. A `tail -f`
+  instance streams the log during startup so you can watch model downloads and
+  progress messages in real-time.
+- `--live` (`-l`): streams splash output directly to the terminal instead of a
+  log file. Output is interleaved with the script's own status messages.
 
 ## Gotchas
 

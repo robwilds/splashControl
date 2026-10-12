@@ -22,6 +22,7 @@ Launches a local LLM model server using [splash](https://github.com/inco-ai/spla
 | `-w, --ready-timeout SECONDS` | `0` (wait forever)                      | How long to wait for the server to become ready before launching an agent |
 | `-y, --yes`                 | —                                         | Skip interactive prompts, use defaults            |
 | `-s, --skip-update`         | —                                         | Skip the Homebrew / splash install-or-update check |
+| `-l, --live`                | —                                         | Stream splash output directly to the terminal     |
 | `--no-save`                 | —                                         | Do not remember the chosen values this run       |
 | `--forget`                  | —                                         | Delete the remembered values and exit            |
 | `--`                        | —                                         | Pass extra arguments directly to `splash serve`   |
@@ -70,9 +71,27 @@ cp .envexample .env
 
 # Pass extra flags to splash serve
 ./start_splash.sh -- --port 8080
+
+# Stream splash output live to the terminal
+./start_splash.sh --live
 ```
 
 When splash starts, it runs in the background. If no agent is selected, splash remains running and you can press Ctrl+Z to suspend it or kill its PID to stop. If an agent is chosen (via prompt or `-a`), the script first waits until the server reports ready (its `/ready` endpoint answers `200`, which happens once the model has finished loading) and only then launches the agent. This avoids `splash <agent>` failing with "No ready Splash server" while the model is still loading. The wait has no timeout by default; pass `-w SECONDS` to bound it. If splash is served on a non-default port (via `--port` or `SPLASH_PORT`), the script passes that port on to the agent.
+
+### Splash output
+
+By default splash's output is captured to `splash.log` in the same directory as
+the script. While waiting for the server to become ready, `tail -f` streams the
+log to your terminal so you can watch model downloads and progress messages in
+real-time. You can also inspect it at any time:
+
+```bash
+tail -f splash.log
+```
+
+Pass `--live` (or `-l`) to stream splash output directly to the terminal instead
+of a log file. Note that the output will be interleaved with the script's own
+status messages (the spinner, agent startup text, etc.).
 
 ## Requirements
 
