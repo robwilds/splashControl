@@ -20,6 +20,9 @@ AGENT="none"
 # Seconds to wait for the server's /ready before giving up when launching an
 # agent. 0 waits indefinitely (until the server is ready or splash exits).
 READY_TIMEOUT=0
+# Whether to stream splash output directly to the terminal (--live).
+# When false, output is captured to splash.log and tailed during startup.
+STREAM_SPLASH=0
 # splash serve's default HTTP port
 DEFAULT_PORT=8000
 
@@ -33,6 +36,7 @@ MODEL_SET=0
 IDLE_SET=0
 CACHE_SET=0
 AGENT_SET=0
+LIVE_SET=0
 ASSUME_YES=0
 SKIP_UPDATE=0
 SAVE_CONFIG=1
@@ -52,6 +56,7 @@ Options:
   -y, --yes                     Skip prompts and use defaults for unset values
   -s, --skip-update             Skip the Homebrew / splash install-or-update check
   -a, --agent AGENT             Agent to launch (none/opencode/hermes/claude)
+  -l, --live                    Stream splash output to terminal directly
   -k, --kill                    Stop existing splash serve without prompting
   -w, --ready-timeout SECONDS   Give up waiting for the server after SECONDS
                                 when launching an agent (0 = wait forever)
@@ -322,19 +327,35 @@ server_ready() {
 
 # Wait for the server to become ready, so an agent is not launched against a
 # server that is still loading the model. Aborts early if serve exits.
+# If output was captured to a log file, also tails it so you can watch progress.
 wait_for_server() {
     waited=0
+    LOGFILE="$SCRIPT_DIR/splash.log"
+
+    # Start tail -f so you can watch splash's output in real-time (only if
+    # we captured to a log file, i.e. --live was not set).
+    TAIL_PID=""
+    if [ "$STREAM_SPLASH" -eq 0 ] && [ -f "$LOGFILE" ]; then
+        printf "Watching splash output (see $LOGFILE)...\n\n"
+        tail -f -- "$LOGFILE" &
+        TAIL_PID=$!
+        disown "$TAIL_PID" 2>/dev/null || true
+    fi
+
     printf "Waiting for splash on port %s (model load can take a while)...\n" "$PORT"
     while :; do
         if ! kill -0 "$SPINNER" 2>/dev/null; then
+            [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
             printf "\nError: splash serve exited before it became ready.\n" >&2
             return 1
         fi
         if server_ready; then
-            printf "Splash is ready on port %s.\n" "$PORT"
+            [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
+            printf "\nSplash is ready on port %s.\n" "$PORT"
             return 0
         fi
         if [ "$READY_TIMEOUT" -gt 0 ] && [ "$waited" -ge "$READY_TIMEOUT" ]; then
+            [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
             printf "\nError: splash was not ready on port %s after %ss. Still starting; try 'splash %s' once it reports Ready.\n" \
                 "$PORT" "$READY_TIMEOUT" "$AGENT" >&2
             return 1
@@ -372,6 +393,8 @@ while [ $# -gt 0 ]; do
             need_value "$1" "$2"; AGENT="$2"; AGENT_SET=1; shift 2 ;;
         --agent=*)
             AGENT="${1#*=}"; AGENT_SET=1; shift ;;
+        -l|--live)
+            STREAM_SPLASH=1; LIVE_SET=1; shift ;;
         -w|--ready-timeout)
             need_value "$1" "$2"
             case "$2" in
@@ -450,13 +473,27 @@ resolve_port "$@"
 
 stop_existing_splash "$@"
 
-# Start splash serve in background, fully detached
-{ splash serve \
-    --language-only \
-    --max-cache-disk "$MAX_CACHE_DISK" \
-    --idle-release "$IDLE_RELEASE" \
-    --model "$MODEL" \
-    "$@" </dev/null >/dev/null 2>&1 & }
+# Start splash serve. By default output is captured to splash.log; with --live
+# it streams directly to the terminal (so you see model download progress in
+# real-time, but the spinner and agent startup text will also appear).
+if [ "$STREAM_SPLASH" -eq 1 ]; then
+    echo "Starting splash (streaming to terminal)..."
+    splash serve \
+        --language-only \
+        --max-cache-disk "$MAX_CACHE_DISK" \
+        --idle-release "$IDLE_RELEASE" \
+        --model "$MODEL" \
+        "$@" </dev/null &
+else
+    LOGFILE="$SCRIPT_DIR/splash.log"
+    echo "Starting splash (logs: $LOGFILE)"
+    { splash serve \
+        --language-only \
+        --max-cache-disk "$MAX_CACHE_DISK" \
+        --idle-release "$IDLE_RELEASE" \
+        --model "$MODEL" \
+        "$@" </dev/null >>"$LOGFILE" 2>&1 & }
+fi
 SPINNER=$!
 disown "$SPINNER" 2>/dev/null || true
 sleep 3
