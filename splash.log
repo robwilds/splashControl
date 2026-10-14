@@ -1,0 +1,148 @@
+Could not reach the Hub ([Errno 54] Connection reset by peer); using the installed unsloth/Qwen3.6-35B-A3B-GGUF@a483e9e6cbd5.
+Splash model unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL is already installed in /Users/robertwilds/Library/Application Support/Splash/models/.selections/1ce57bd360eca2e69446dc0934224942c92382e6ed3de1e11f76dbb9c4b14086
+11:05:59 Loading · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+11:06:00 Chat template · patched to render later system messages in place (the original template drops them), generation prompt 5-7 tokens
+11:06:04 Weights loaded in 4.15 s.
+11:06:04 Kernel policy for GPU family 10 with 10 cores.
+11:06:04 SSD cache: 16384 MiB for KV pages of 336 KiB and states of 63 MiB; a state's write stages through 63 MiB of the memory plan.
+11:06:07 Ready · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL · context 256K · language only · http://127.0.0.1:8000
+11:06:14 Memory: growth paused; waiting=0; suspended=0
+11:06:15 Memory: growth available; resource wait cleared
+11:06:30 Memory: growth paused; waiting=0; suspended=0
+11:06:48 Done · input 26,651 · cached 0 · output 73 · tools 12·fc38e0a2 · TTFT 22.7s · 62.5 tok/s
+11:06:52 Done · input 26,854 · cached 26,624 · output 178 · tools 12·fc38e0a2 · TTFT 0.5s · 63.0 tok/s
+11:06:57 Done · input 27,123 · cached 26,848 · output 192 · tools 12·fc38e0a2 · TTFT 0.7s · 56.3 tok/s
+11:07:00 Memory: growth available; resource wait cleared
+11:07:12 Memory: growth paused; waiting=0; suspended=0
+11:07:14 Memory: growth available; resource wait cleared
+11:07:14 Memory: growth paused; waiting=0; suspended=0
+11:07:16 Memory: growth available; resource wait cleared
+11:07:18 Memory: growth paused; waiting=0; suspended=0
+11:07:31 Memory: growth available; resource wait cleared
+11:08:28 Weights released after 90 s without a request; the next request restores them
+11:10:43 Weights restored in 4.41 s
+11:10:44 Done · input 27,104 · cached 26,624 · output 56 · tools 12·fc38e0a2 · TTFT 5.3s · 65.7 tok/s
+11:10:46 Memory: growth paused; waiting=0; suspended=0
+11:10:46 Done · input 27,233 · cached 27,072 · output 99 · tools 12·fc38e0a2 · TTFT 0.4s · 74.4 tok/s
+11:10:49 Memory: growth available; resource wait cleared
+11:10:50 Memory: growth paused; waiting=0; suspended=0
+11:10:50 Memory: growth available; resource wait cleared
+11:10:51 Memory: growth paused; waiting=0; suspended=0
+11:10:53 Memory: growth available; resource wait cleared
+11:10:56 Memory: growth paused; waiting=0; suspended=0
+11:10:56 Memory: growth available; resource wait cleared
+11:10:57 Memory: growth paused; waiting=0; suspended=0
+11:10:57 Done · input 29,532 · cached 27,200 · output 759 · tools 12·fc38e0a2 · TTFT 2.8s · 91.1 tok/s
+11:11:03 Memory: growth available; resource wait cleared
+11:11:03 Memory: growth paused; waiting=0; suspended=0
+11:11:04 Done · input 30,313 · cached 29,504 · output 545 · tools 12·fc38e0a2 · TTFT 1.1s · 93.4 tok/s
+11:11:07 Done · input 30,880 · cached 30,304 · output 137 · tools 12·fc38e0a2 · TTFT 0.9s · 68.8 tok/s
+11:11:13 Done · input 31,039 · cached 30,848 · output 604 · tools 12·fc38e0a2 · TTFT 0.5s · 109.2 tok/s
+11:11:18 Done · input 31,666 · cached 31,008 · output 313 · tools 12·fc38e0a2 · TTFT 1.0s · 79.6 tok/s
+11:11:26 Done · input 32,061 · cached 27,072 · output 85 · tools 12·fc38e0a2 · TTFT 5.9s · 53.7 tok/s
+11:11:30 Done · input 32,474 · cached 32,032 · output 93 · tools 12·fc38e0a2 · TTFT 0.8s · 49.0 tok/s
+11:11:34 Done · input 32,644 · cached 32,448 · output 154 · tools 12·fc38e0a2 · TTFT 0.5s · 60.8 tok/s
+11:11:34 Memory: growth available; resource wait cleared
+11:11:38 Memory: growth paused; waiting=0; suspended=0
+11:12:03 Memory: growth available; resource wait cleared
+11:12:11 Memory: growth paused; waiting=0; suspended=0
+11:12:12 Memory: growth available; resource wait cleared
+11:12:32 Memory: growth paused; waiting=0; suspended=0
+11:12:33 Memory: growth available; resource wait cleared
+11:12:41 Memory: growth paused; waiting=0; suspended=0
+11:12:42 Memory: growth available; resource wait cleared
+11:13:04 Weights released after 90 s without a request; the next request restores them
+11:37:24 Error · not_found · GET /apple-touch-icon-precomposed.png
+11:37:24 Error · not_found · GET /apple-touch-icon.png
+11:38:00 Weights restored in 4.84 s
+11:38:04 Memory: growth paused; waiting=0; suspended=0
+11:38:34 Done · input 47 · cached 0 · output 2,338 · TTFT 5.1s · 68.6 tok/s
+11:38:36 Memory: growth available; resource wait cleared
+11:38:37 Memory: growth paused; waiting=0; suspended=0
+11:38:38 Memory: growth available; resource wait cleared
+11:38:40 Memory: growth paused; waiting=0; suspended=0
+11:38:46 Memory: growth available; resource wait cleared
+11:38:46 Memory: growth paused; waiting=0; suspended=0
+11:38:50 Stopping · releasing engine resources
+Splash model unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL is already installed in /Users/robertwilds/Library/Application Support/Splash/models/.selections/1ce57bd360eca2e69446dc0934224942c92382e6ed3de1e11f76dbb9c4b14086
+18:08:36 Loading · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+18:08:37 Chat template · patched to render later system messages in place (the original template drops them), generation prompt 5-7 tokens
+18:08:42 Weights loaded in 4.75 s.
+18:08:42 Kernel policy for GPU family 10 with 10 cores.
+18:08:42 SSD cache: 16384 MiB for KV pages of 336 KiB and states of 63 MiB; a state's write stages through 63 MiB of the memory plan.
+18:08:44 Ready · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL · context 256K · language only · http://127.0.0.1:8000
+18:09:29 Done · input 1,259 · cached 0 · output 9 · TTFT 1.3s · 60.6 tok/s
+18:09:36 Done · input 6,236 · cached 0 · output 186 · tools 12·a561b1b9 · TTFT 5.4s · 69.0 tok/s
+18:09:44 Done · input 10,169 · cached 6,208 · output 365 · tools 12·a561b1b9 · TTFT 3.1s · 67.0 tok/s
+18:10:17 Done · input 37,233 · cached 10,144 · output 238 · tools 12·a561b1b9 · TTFT 28.2s · 49.8 tok/s
+18:10:20 Memory: growth paused; waiting=0; suspended=0
+18:10:22 Done · input 38,926 · cached 37,216 · output 154 · tools 12·a561b1b9 · TTFT 2.4s · 61.3 tok/s
+18:10:25 Memory: growth available; resource wait cleared
+18:10:28 Memory: growth paused; waiting=0; suspended=0
+18:10:29 Memory: growth available; resource wait cleared
+18:10:33 Done · input 43,535 · cached 38,912 · output 210 · tools 12·a561b1b9 · TTFT 6.5s · 44.5 tok/s
+18:10:36 Memory: growth paused; waiting=0; suspended=0
+18:10:37 Memory: growth available; resource wait cleared
+18:10:40 Done · input 45,542 · cached 43,520 · output 187 · tools 12·a561b1b9 · TTFT 3.0s · 55.6 tok/s
+18:10:45 Memory: growth paused; waiting=0; suspended=0
+18:10:45 Memory: growth available; resource wait cleared
+18:10:50 Done · input 49,215 · cached 45,536 · output 173 · tools 12·a561b1b9 · TTFT 5.6s · 42.1 tok/s
+18:10:51 Memory: growth paused; waiting=0; suspended=0
+18:10:51 Memory: growth available; resource wait cleared
+18:10:53 Done · input 49,728 · cached 49,184 · output 169 · tools 12·a561b1b9 · TTFT 1.1s · 60.0 tok/s
+18:10:55 Memory: growth paused; waiting=0; suspended=0
+18:10:55 Memory: growth available; resource wait cleared
+18:10:57 Done · input 50,426 · cached 49,696 · output 124 · tools 12·a561b1b9 · TTFT 1.4s · 57.3 tok/s
+18:10:57 Memory: growth paused; waiting=0; suspended=0
+18:11:01 Memory: growth available; resource wait cleared
+18:11:02 Memory: growth paused; waiting=0; suspended=0
+18:11:03 Memory: growth available; resource wait cleared
+18:11:04 Memory: growth paused; waiting=0; suspended=0
+18:11:05 Memory: growth available; resource wait cleared
+18:11:36 Done · input 51,505 · cached 50,400 · output 1,759 · tools 12·a561b1b9 · TTFT 1.9s · 47.8 tok/s
+18:11:43 Done · input 53,286 · cached 51,488 · output 247 · tools 12·a561b1b9 · TTFT 3.0s · 52.2 tok/s
+18:13:14 Weights released after 90 s without a request; the next request restores them
+07:00:10 Stopping · releasing engine resources
+Selected Qwen3.6-35B-A3B-UD-Q2_K_XL.gguf from unsloth/Qwen3.6-35B-A3B-GGUF.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 1 file(s), 1.05 GB, from incoai/Qwen3.6-35B-A3B-DFlash2@51ef7b6923ad; cached files are reused.
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:20<00:00, 10.29s/it]Fetching 2 files: 100%|██████████| 2/2 [00:20<00:00, 10.29s/it]
+Installing unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL as Qwen3.6-35B-A3B (gguf); draft incoai/Qwen3.6-35B-A3B-DFlash2; vision disabled.
+Fetching 1 file(s), 12.29 GB, from unsloth/Qwen3.6-35B-A3B-GGUF@a483e9e6cbd5; cached files are reused.
+Fetching 1 files:   0%|          | 0/1 [00:00<?, ?it/s]Fetching 1 files: 100%|██████████| 1/1 [04:06<00:00, 246.91s/it]Fetching 1 files: 100%|██████████| 1/1 [04:06<00:00, 246.92s/it]
+08:25:10 Loading · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+08:25:11 Chat template · patched to render later system messages in place (the original template drops them), generation prompt 5-7 tokens
+08:25:15 Weights loaded in 4.48 s.
+08:25:15 Kernel policy for GPU family 10 with 10 cores.
+08:25:15 SSD cache: 16384 MiB for KV pages of 336 KiB and states of 63 MiB; a state's write stages through 63 MiB of the memory plan.
+08:25:17 Memory: growth paused; waiting=0; suspended=0
+08:25:17 Memory: growth available; resource wait cleared
+08:25:18 Memory: growth paused; waiting=0; suspended=0
+08:25:18 Ready · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL · context 256K · language only · http://127.0.0.1:8000
+08:25:18 Memory: growth available; resource wait cleared
+08:25:20 Memory: growth paused; waiting=0; suspended=0
+08:25:24 Memory: growth available; resource wait cleared
+08:25:25 Memory: growth paused; waiting=0; suspended=0
+08:25:36 Memory: growth available; resource wait cleared
+08:25:38 Memory: growth paused; waiting=0; suspended=0
+08:25:47 Memory: growth available; resource wait cleared
+08:25:48 Memory: growth paused; waiting=0; suspended=0
+08:25:51 Memory: growth available; resource wait cleared
+08:25:55 Memory: growth paused; waiting=0; suspended=0
+08:25:59 Memory: growth available; resource wait cleared
+08:26:02 Memory: growth paused; waiting=0; suspended=0
+08:26:04 Memory: growth available; resource wait cleared
+08:26:47 Weights released after 90 s without a request; the next request restores them
+Updating unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL: the GGUF metadata adapter changed.
+Selected Qwen3.6-35B-A3B-UD-Q2_K_XL.gguf from unsloth/Qwen3.6-35B-A3B-GGUF.
+Installing unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL as Qwen3.6-35B-A3B (gguf); draft incoai/Qwen3.6-35B-A3B-DFlash2; vision disabled.
+09:01:35 Loading · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+09:01:35 Chat template · patched to render later system messages in place (the original template drops them), generation prompt 5-7 tokens
+09:01:35 Splash 1.1's prepared weights in /Users/robertwilds/Library/Caches/Splash/weights hold 38.4 GiB, which nothing reads now: rm -rf "/Users/robertwilds/Library/Caches/Splash/weights" frees them
+09:01:40 Weights loaded in 4.88 s.
+09:01:40 Kernel policy for GPU family 10 with 10 cores.
+09:01:40 SSD cache: up to 16.0 GiB of temporary files in /var/folders/v2/_d2_6g452c54qt8cb1lk4dsr0000gn/T/ (its quota, while its volume has room beyond the 10.0 GiB it keeps free); KV pages of 336 KiB and states of 63 MiB, a state's write staging through 63 MiB of the memory plan; --max-cache-disk 0 turns it off.
+09:04:22 Memory: growth paused; waiting=0; suspended=0
+09:04:23 Ready · unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL · context 256K · language only · http://127.0.0.1:8000
+09:04:32 Memory: growth available; resource wait cleared
+09:04:37 Memory: growth paused; waiting=0; suspended=0

@@ -26,9 +26,29 @@ STREAM_SPLASH=0
 # splash serve's default HTTP port
 DEFAULT_PORT=8000
 
-# Where chosen values are remembered (repo-local, gitignored).
-# Override with SPLASH_CONTROL_ENV=/path/to/file to use another location.
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# On-PATH launcher so this script can be run from anywhere. The name is
+# deliberately NOT "splash": this script calls the real splash binary
+# internally, so a link called "splash" would re-invoke this script forever.
+LINK_NAME="splashctl"
+# Directory the launcher symlink is created in. Override with
+# SPLASH_CONTROL_BIN=/some/bin (e.g. /usr/local/bin).
+INSTALL_DIR="${SPLASH_CONTROL_BIN:-$HOME/.local/bin}"
+# Remembered preference for the PATH prompt: "" (ask) / "yes" / "no"
+PATH_ENTRY=""
+
+# This script's real location. $0 can be the on-PATH launcher symlink (in a
+# bin directory, not the repo), so follow symlinks before locating .env and
+# splash.log next to the real script.
+SCRIPT_SELF="$0"
+while [ -L "$SCRIPT_SELF" ]; do
+    link_target=$(readlink "$SCRIPT_SELF")
+    case "$link_target" in
+        /*) SCRIPT_SELF="$link_target" ;;
+        *)  SCRIPT_SELF="$(dirname -- "$SCRIPT_SELF")/$link_target" ;;
+    esac
+done
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$SCRIPT_SELF")" && pwd)
+SCRIPT_FILE="$SCRIPT_DIR/$(basename -- "$SCRIPT_SELF")"
 CONFIG_FILE="${SPLASH_CONTROL_ENV:-$SCRIPT_DIR/.env}"
 
 # Track which values were supplied on the command line
@@ -42,6 +62,8 @@ SKIP_UPDATE=0
 SAVE_CONFIG=1
 FORGET_CONFIG=0
 FORCE_KILL=0
+ADD_PATH=0
+REMOVE_PATH=0
 
 usage() {
     cat <<USAGE
@@ -62,6 +84,9 @@ Options:
                                 when launching an agent (0 = wait forever)
       --no-save                 Do not remember the chosen values this run
       --forget                  Delete the remembered values and exit
+      --add-path                Install a 'splashctl' launcher on your PATH
+                                (see below) and exit
+      --remove-path             Remove the 'splashctl' launcher and exit
   -h, --help                    Show this help
 
 Before launching an agent the script waits until the local server answers
@@ -74,6 +99,13 @@ offered as a numbered menu (stored in $CONFIG_FILE).
 Chosen values are remembered in:
   $CONFIG_FILE
 and reused as the defaults on the next run. Command-line options always win.
+
+Run from anywhere:
+  '$LINK_NAME' is a symlink to this script, created in $INSTALL_DIR (override
+  with SPLASH_CONTROL_BIN). With --add-path it is installed and $INSTALL_DIR is
+  added to your shell's PATH if needed; the first interactive run also offers
+  this once. Use --remove-path to unlink it again. The name is not 'splash' so
+  the real splash binary this script invokes is left untouched.
 
 Example:
   $(basename "$0") -m unsloth/Some-Model-GGUF:Q4_K_M -i 120s -c 32G
@@ -105,6 +137,7 @@ load_config() {
             IDLE_RELEASE)   IDLE_RELEASE="$val" ;;
             MAX_CACHE_DISK) MAX_CACHE_DISK="$val" ;;
             AGENT)          AGENT="$val" ;;
+            PATH_ENTRY)     PATH_ENTRY="$val" ;;
         esac
     done < "$CONFIG_FILE"
 }
@@ -122,6 +155,7 @@ MODEL_HISTORY=$MODEL_HISTORY
 IDLE_RELEASE=$IDLE_RELEASE
 MAX_CACHE_DISK=$MAX_CACHE_DISK
 AGENT=$AGENT
+PATH_ENTRY=$PATH_ENTRY
 __EOF__
     mv -- "$tmp" "$CONFIG_FILE"
 }
@@ -226,6 +260,124 @@ ensure_splash() {
         brew install incoai/tap/splash \
             || { echo "Error: splash installation failed" >&2; exit 1; }
     fi
+}
+
+# ---------------------------------------------------------------------------
+# On-PATH launcher ("run from anywhere")
+# ---------------------------------------------------------------------------
+
+# True when the launcher path is a symlink that resolves to this script.
+link_target_is_ours() {
+    link_file="$INSTALL_DIR/$LINK_NAME"
+    [ -L "$link_file" ] || return 1
+    dest=$(readlink "$link_file" 2>/dev/null) || return 1
+    case "$dest" in
+        /*) ;;
+        *) dest="$(dirname -- "$link_file")/$dest" ;;
+    esac
+    [ "$dest" = "$SCRIPT_FILE" ]
+}
+
+# Make sure $INSTALL_DIR is on PATH; if not, add one idempotent export line to
+# the user's shell startup file (falling back to printing instructions).
+ensure_dir_on_path() {
+    case ":$PATH:" in
+        *":$INSTALL_DIR:"*) return 0 ;;
+    esac
+
+    line="export PATH=\"$INSTALL_DIR:\$PATH\""
+
+    case "$(basename -- "${SHELL:-}")" in
+        zsh)  rc_file="$HOME/.zshrc" ;;
+        bash)
+            if [ "$(uname -s)" = "Darwin" ]; then
+                rc_file="$HOME/.bash_profile"
+            else
+                rc_file="$HOME/.bashrc"
+            fi ;;
+        *) rc_file="" ;;
+    esac
+
+    if [ -z "$rc_file" ]; then
+        echo "Note: $INSTALL_DIR is not on your PATH."
+        echo "Add this to your shell's startup file:"
+        echo "  $line"
+        return 0
+    fi
+
+    if [ -f "$rc_file" ] && grep -Fqx "$line" "$rc_file" 2>/dev/null; then
+        return 0
+    fi
+
+    {
+        printf '\n# Added by splashControl\n'
+        printf '%s\n' "$line"
+    } >> "$rc_file" \
+        || { echo "Warning: could not update $rc_file; add manually: $line" >&2; return 0; }
+
+    echo "Added $INSTALL_DIR to PATH in $rc_file."
+    echo "Open a new terminal (or run: source $rc_file) to use '$LINK_NAME'."
+}
+
+# Create the launcher symlink and make sure its directory is on PATH.
+install_path_link() {
+    link_file="$INSTALL_DIR/$LINK_NAME"
+
+    if [ -e "$link_file" ] && [ ! -L "$link_file" ]; then
+        echo "Warning: $link_file exists and is not a symlink; not overwriting." >&2
+        return 1
+    fi
+    if [ -L "$link_file" ] && ! link_target_is_ours; then
+        echo "Warning: $link_file points elsewhere ($(readlink "$link_file")); not overwriting." >&2
+        return 1
+    fi
+
+    mkdir -p -- "$INSTALL_DIR" \
+        || { echo "Error: could not create $INSTALL_DIR" >&2; return 1; }
+
+    # The launcher executes this script, so it must be executable.
+    [ -x "$SCRIPT_FILE" ] || chmod +x "$SCRIPT_FILE" 2>/dev/null || true
+
+    ln -sfn -- "$SCRIPT_FILE" "$link_file" \
+        || { echo "Error: could not create $link_file" >&2; return 1; }
+    echo "Installed launcher: $link_file -> $SCRIPT_FILE"
+
+    ensure_dir_on_path
+    return 0
+}
+
+# Remove the launcher symlink (only if it is ours) and the PATH line we added.
+remove_path_link() {
+    link_file="$INSTALL_DIR/$LINK_NAME"
+    removed=0
+
+    if [ -L "$link_file" ]; then
+        if link_target_is_ours; then
+            rm -f -- "$link_file"
+            echo "Removed $link_file."
+            removed=1
+        else
+            echo "Warning: $link_file is not a splashControl link; leaving it alone." >&2
+        fi
+    fi
+
+    # Best-effort: drop the PATH line we added, if present.
+    line="export PATH=\"$INSTALL_DIR:\$PATH\""
+    for rc_file in "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc"; do
+        [ -f "$rc_file" ] || continue
+        if grep -Fqx "$line" "$rc_file" 2>/dev/null; then
+            tmp="$rc_file.splashctl.$$"
+            awk -v line="$line" '
+                $0 == line { next }
+                /^# Added by splashControl/ { next }
+                { print }
+            ' "$rc_file" > "$tmp" && mv -- "$tmp" "$rc_file"
+            echo "Removed the PATH line from $rc_file."
+        fi
+    done
+
+    [ "$removed" -eq 1 ] || echo "Nothing to remove at $link_file."
+    return 0
 }
 
 # The port splash serve will listen on: an explicit --port in the extra serve
@@ -415,6 +567,10 @@ while [ $# -gt 0 ]; do
             SAVE_CONFIG=0; shift ;;
         --forget)
             FORGET_CONFIG=1; shift ;;
+        --add-path)
+            ADD_PATH=1; shift ;;
+        --remove-path)
+            REMOVE_PATH=1; shift ;;
         -h|--help)
             usage; exit 0 ;;
         --)
@@ -429,6 +585,13 @@ done
 if [ "$FORGET_CONFIG" -eq 1 ]; then
     rm -f -- "$CONFIG_FILE"
     echo "Forgot remembered settings ($CONFIG_FILE)."
+    exit 0
+fi
+
+# Install / remove the on-PATH launcher and exit (setup actions, no serving).
+if [ "$ADD_PATH" -eq 1 ] || [ "$REMOVE_PATH" -eq 1 ]; then
+    [ "$ADD_PATH" -eq 1 ] && { install_path_link || exit 1; }
+    [ "$REMOVE_PATH" -eq 1 ] && remove_path_link
     exit 0
 fi
 
@@ -456,6 +619,20 @@ if [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ]; then
         read -r input
         [ -n "$input" ] && MAX_CACHE_DISK="$input"
     fi
+fi
+
+# Ensure the on-PATH launcher if previously opted in, otherwise offer it once
+# (interactive runs only). The choice is remembered in PATH_ENTRY.
+if [ "$PATH_ENTRY" = "yes" ]; then
+    link_target_is_ours || install_path_link || true
+elif [ "$PATH_ENTRY" != "no" ] && [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ]; then
+    printf "Add '%s' to PATH (%s) so you can launch splashControl from anywhere? [y/N]: " \
+        "$LINK_NAME" "$INSTALL_DIR"
+    read -r path_answer || path_answer=""
+    case "$path_answer" in
+        [Yy]*) PATH_ENTRY=yes; install_path_link || true ;;
+        *)     PATH_ENTRY=no ;;
+    esac
 fi
 
 # Remember the model/idle/cache choices for next time

@@ -21,3 +21,8 @@ MAX_CACHE_DISK=16G
 
 # Agent to launch after splash starts (none/opencode/hermes/claude)
 AGENT=none
+
+# Whether to install a 'splashctl' launcher on your PATH so splashControl can be
+# run from anywhere. Blank = ask once on the next interactive run; "yes" = keep
+# it installed; "no" = never offer. Manage manually with --add-path/--remove-path.
+PATH_ENTRY=

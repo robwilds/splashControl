@@ -25,13 +25,15 @@ Launches a local LLM model server using [splash](https://github.com/inco-ai/spla
 | `-l, --live`                | —                                         | Stream splash output directly to the terminal     |
 | `--no-save`                 | —                                         | Do not remember the chosen values this run       |
 | `--forget`                  | —                                         | Delete the remembered values and exit            |
+| `--add-path`                | —                                         | Install a `splashctl` launcher on your PATH and exit |
+| `--remove-path`             | —                                         | Remove the `splashctl` launcher and exit         |
 | `--`                        | —                                         | Pass extra arguments directly to `splash serve`   |
 
 ### Remembered settings
 
 Every run resolves values in this order — **CLI options win, then the
 remembered `.env`, then the built-in defaults** — and saves the final model,
-idle release, cache size, and agent back to `.env`:
+idle release, cache size, agent, and PATH-launcher choice back to `.env`:
 
 ```
 ./start_splash.sh -m unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL -c 32G
@@ -50,6 +52,31 @@ to `.env` to pre-seed your preferred values:
 ```
 cp .envexample .env
 ```
+
+### Run from anywhere
+
+`--add-path` installs a `splashctl` launcher (a symlink to this script) so you
+can run splashControl from any directory:
+
+```
+./start_splash.sh --add-path   # creates ~/.local/bin/splashctl and adds it to PATH
+splashctl                      # from anywhere
+./start_splash.sh --remove-path
+```
+
+- The link is created in `~/.local/bin` (override with `SPLASH_CONTROL_BIN=/some/bin`).
+- If that directory is not already on your `PATH`, the script appends one
+  idempotent `export PATH=...` line to your shell startup file (`~/.zshrc`,
+  `~/.bash_profile`, or `~/.bashrc`). Open a new terminal, or `source` the file,
+  to pick it up.
+- The first interactive run also offers this once; the answer is remembered in
+  `.env` as `PATH_ENTRY` (`yes`/`no`). Non-interactive runs (`-y`) never install
+  it unless you previously said yes.
+- The launcher is deliberately named `splashctl`, **not** `splash`: this script
+  calls the real `splash` binary internally, and a link called `splash` would
+  make it re-invoke itself.
+- Only a symlink pointing at this script is ever removed/overwritten; a
+  pre-existing unrelated file of the same name is left untouched.
 
 ### Examples
 
