@@ -1,6 +1,6 @@
 # splashControl
 
-Launches a local LLM model server using [splash](https://github.com/inco-ai/splash) with overridable settings.
+Launches a local LLM model server using [splash](https://github.com/incoai/splash) with overridable settings.
 
 ## Purpose
 
@@ -47,22 +47,22 @@ Common non-interactive invocations:
 
 ### Options
 
-| Option                        | Default                                   | Description                                                       |
-| ----------------------------- | ----------------------------------------- | ----------------------------------------------------------------- |
-| `-m, --model MODEL`           | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                                    |
-| `-i, --idle-release DURATION` | `90s`                                     | Time until the idle model is released from memory                 |
-| `-c, --max-cache-disk SIZE`   | `16G`                                     | Maximum disk cache size for model weights                         |
+| Option                        | Default                                   | Description                                                               |
+| ----------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
+| `-m, --model MODEL`           | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                                            |
+| `-i, --idle-release DURATION` | `90s`                                     | Time until the idle model is released from memory                         |
+| `-c, --max-cache-disk SIZE`   | `16G`                                     | Maximum disk cache size for model weights                                 |
 | `-a, --agent AGENT`           | `none`                                    | Agent to launch once ready: `none`/`opencode`/`hermes`/`claude`/`browser` |
 | `-w, --ready-timeout SECONDS` | `0` (wait forever)                        | How long to wait for the server to become ready before launching an agent |
-| `-y, --yes`                   | —                                         | Skip interactive prompts, use defaults                            |
-| `-s, --skip-update`           | —                                         | Skip the Homebrew / splash install-or-update check                |
-| `-l, --live`                  | —                                         | Stream splash output directly to the terminal                     |
-| `-k, --kill`                  | —                                         | Stop an existing `splash serve` without prompting                 |
-| `--no-save`                   | —                                         | Do not remember the chosen values this run                        |
-| `--forget`                    | —                                         | Delete the remembered values and exit                             |
-| `--add-path`                  | —                                         | Install a `splashctl` launcher on your PATH and exit              |
-| `--remove-path`               | —                                         | Remove the `splashctl` launcher and exit                          |
-| `--`                          | —                                         | Pass extra arguments directly to `splash serve`                   |
+| `-y, --yes`                   | —                                         | Skip interactive prompts, use defaults                                    |
+| `-s, --skip-update`           | —                                         | Skip the Homebrew / splash install-or-update check                        |
+| `-l, --live`                  | —                                         | Stream splash output directly to the terminal                             |
+| `-k, --kill`                  | —                                         | Stop an existing `splash serve` without prompting                         |
+| `--no-save`                   | —                                         | Do not remember the chosen values this run                                |
+| `--forget`                    | —                                         | Delete the remembered values and exit                                     |
+| `--add-path`                  | —                                         | Install a `splashctl` launcher on your PATH and exit                      |
+| `--remove-path`               | —                                         | Remove the `splashctl` launcher and exit                                  |
+| `--`                          | —                                         | Pass extra arguments directly to `splash serve`                           |
 
 ### Remembered settings
 
