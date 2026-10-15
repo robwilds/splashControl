@@ -9,6 +9,10 @@ command so you can quickly pick a model, choose an agent to connect, and tune
 cache/idle settings without memorising flags. Chosen values are remembered and
 reused on the next run.
 
+Splash dramatically improves tok/s as tested on an m5 macbook air with 24gb ram.
+
+Splash currently only supports qwen3.8 and 3.6 models that are specifically formatted for splash. Refer to the splash github repo link above for more details.
+
 ## Quick Start
 
 Run the script straight from the repo — it is executable, there is nothing to
