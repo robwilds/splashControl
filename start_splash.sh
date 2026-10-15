@@ -77,7 +77,7 @@ Options:
   -c, --max-cache-disk SIZE     Max disk cache size (default: $MAX_CACHE_DISK)
   -y, --yes                     Skip prompts and use defaults for unset values
   -s, --skip-update             Skip the Homebrew / splash install-or-update check
-  -a, --agent AGENT             Agent to launch (none/opencode/hermes/claude)
+  -a, --agent AGENT             Agent to launch (none/opencode/hermes/claude/browser)
   -l, --live                    Stream splash output to terminal directly
   -k, --kill                    Stop existing splash serve without prompting
   -w, --ready-timeout SECONDS   Give up waiting for the server after SECONDS
@@ -693,14 +693,16 @@ select_agent() {
     printf "  1) opencode\n"
     printf "  2) hermes\n"
     printf "  3) claude\n"
-    printf "  4) none\n"
-    printf "Choice [1-4]: "
+    printf "  4) browser (web chat UI)\n"
+    printf "  5) none\n"
+    printf "Choice [1-5]: "
     read -r agent_choice
     case "$agent_choice" in
         1) AGENT="opencode" ;;
         2) AGENT="hermes" ;;
         3) AGENT="claude" ;;
-        4|*) AGENT="none" ;;
+        4) AGENT="browser" ;;
+        5|*) AGENT="none" ;;
     esac
 }
 
@@ -715,15 +717,33 @@ fi
 save_config
 
 if [ "$AGENT" != "none" ]; then
-    # splash <agent> probes the server once and fails if it is still loading,
-    # so wait for /ready before connecting.
-    wait_for_server || exit 1
-    echo "Launching splash $AGENT..."
-    if [ "$PORT" != "$DEFAULT_PORT" ]; then
-        exec splash "$AGENT" --port "$PORT"
-    else
-        exec splash "$AGENT"
-    fi
+    case "$AGENT" in
+        browser)
+            wait_for_server || exit 1
+            echo "Opening chat UI in browser..."
+            if command -v open >/dev/null 2>&1; then
+                open "http://localhost:$PORT"
+            elif command -v xdg-open >/dev/null 2>&1; then
+                xdg-open "http://localhost:$PORT"
+            elif command -v cygstart >/dev/null 2>&1; then
+                cygstart "http://localhost:$PORT"
+            else
+                echo "Cannot determine browser opener; visit: http://localhost:$PORT" >&2
+            fi
+            echo "Splash running in background (PID $SPINNER)."
+            echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
+            wait "$SPINNER"
+            ;;
+        *)
+            wait_for_server || exit 1
+            echo "Launching splash $AGENT..."
+            if [ "$PORT" != "$DEFAULT_PORT" ]; then
+                exec splash "$AGENT" --port "$PORT"
+            else
+                exec splash "$AGENT"
+            fi
+            ;;
+    esac
 else
     echo "No agent selected. Splash running in background (PID $SPINNER)."
     echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
