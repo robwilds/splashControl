@@ -187,6 +187,6 @@ status messages (the spinner, agent startup text, etc.).
 
 ## Requirements
 
-- M3 or newer MacBook running macOS 26 or later
+- M3 or newer MacBook running macOS 26 or later with at least 24gb of ram
 - Homebrew (auto-installed if missing, auto-updated each run)
 - `splash` from `incoai/tap/splash` (auto-installed if missing, auto-updated each run)
