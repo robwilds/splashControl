@@ -187,6 +187,6 @@ status messages (the spinner, agent startup text, etc.).
 
 ## Requirements
 
-- macOS or Linux (the script is POSIX `sh`)
+- M3 or newer MacBook running macOS 26 or later
 - Homebrew (auto-installed if missing, auto-updated each run)
 - `splash` from `incoai/tap/splash` (auto-installed if missing, auto-updated each run)
