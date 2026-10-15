@@ -1,70 +1,66 @@
 # splashControl
 
-Single-script repo: `start_splash.sh` launches `splash serve` with overridable settings.
+One POSIX-sh script, `start_splash.sh`, that ensures Homebrew + `splash`
+(`incoai/tap/splash`) are installed/current and launches `splash serve`
+with remembered settings, optionally followed by an agent. No build step,
+no test suite, no lint/CI config. The only other tracked files are `README.md`,
+`.envexample`, `.gitignore`, and a stale tracked `splash.log`.
 
-## Quick reference
+## Verify changes
 
-```
-./start_splash.sh -m MODEL -i DURATION -c SIZE
-./start_splash.sh --help
-```
+- There are no automated tests. Smoke-test manually.
+- `sh -n start_splash.sh` is the minimum syntax check, but on macOS `/bin/sh`
+  is bash 3.2, so it accepts bashisms. The script targets POSIX sh (on Linux
+  `/bin/sh` is usually dash): check with `dash -n start_splash.sh` when
+  available.
+- Avoid slow/full runs while testing: `-s` skips `brew update`/`upgrade`,
+  `-y -a none` skips prompts. A real run starts `splash serve` and loads a
+  model, so it is not a cheap check.
 
-| Option | Default | Description |
-|---|---|---|
-| `-m, --model` | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve |
-| `-i, --idle-release` | `90s` | Idle release duration |
-| `-c, --max-cache-disk` | `16G` | Max disk cache size |
-| `-a, --agent` | `none` | Agent to launch (`none`/`opencode`/`hermes`/`claude`) |
-| `-l, --live` | — | Stream splash output directly to the terminal |
-| `-w, --ready-timeout` | `0` (forever) | Seconds to wait for the server's `/ready` before launching an agent |
-| `-y, --yes` | — | Skip prompts, use defaults |
-| `-s, --skip-update` | — | Skip brew/splash install check |
-| `--no-save` | — | Don't remember this run's values |
-| `--forget` | — | Delete the remembered values and exit |
-| `--add-path` | — | Install a `splashctl` launcher on PATH and exit |
-| `--remove-path` | — | Remove the `splashctl` launcher and exit |
-| `--` | — | Pass extra args to `splash serve` |
+## Editing constraints
 
-Values are resolved CLI > `.env` (remembered) > built-in defaults, then saved
-back to repo-local `.env` (gitignored). A commented template is checked in as
-`.envexample` (tracked) — `cp .envexample .env` to pre-seed values.
+- Keep it POSIX sh: no arrays, `[[ ]]`, `local`, or `source`. The code uses
+  `case`, `printf`, and `read` throughout.
+- The startup symlink loop follows `$0` (which may be the `splashctl` launcher)
+  to find the real `SCRIPT_DIR` before locating `.env` and `splash.log`.
+  Don't simplify it or invoking via the launcher breaks.
+- The launcher must stay named `splashctl`: the script calls the real `splash`
+  binary internally, so a link named `splash` would recurse forever.
+- `.env` is hand-parsed, never sourced (values are never executed).
 
-## How it works
+## Adding a remembered setting
 
-1. Ensures Homebrew is installed (installs it if missing), then runs `brew update`
-2. Ensures `incoai/tap/splash` is installed/up-to-date via Homebrew
-3. Loads remembered values from `.env` (if any), then prompts for model, idle release, cache disk, and agent (press Enter for defaults, or use `-y`/`-a` to skip). The resolved values are saved back to `.env`
-4. Launches `splash serve` in the background with `--language-only --max-cache-disk ... --model ...`
-5. If an agent is chosen (via prompt or `-a`), waits until the server's `/ready` endpoint answers (`splash` reports "Ready" once the model is loaded), then launches the agent with the resolved port
+Thread a new key through **all** of these, or it silently won't persist:
+`load_config` (the `case "$key"`), `save_config` (the heredoc), the arg-parse
+`while [ $# -gt 0 ]` loop, `usage()`, and `.envexample`. Format is `KEY=value`;
+`MODEL_HISTORY` is a `;`-joined, most-recent-first list (model ids never contain
+`;`). Override the config file path with `SPLASH_CONTROL_ENV`.
 
-`--add-path`/`--remove-path` are standalone setup actions (run and exit, like
-`--forget`). `--add-path` symlinks `~/.local/bin/splashctl` to this script
-(override the dir with `SPLASH_CONTROL_BIN`) and, if needed, appends one
-idempotent `export PATH=...` line to the shell rc. The first interactive run
-also offers this once; the answer is remembered in `.env` as `PATH_ENTRY`
-(`yes`/`no`). The script resolves its own symlinks at startup, so invoking it
-through the launcher still finds `.env` and `splash.log` in the repo.
+## Options
 
-## Splash output
+`--help` (and the README options table) is authoritative and kept in sync with
+the arg parser. `-a browser` opens the web chat UI instead of a TUI agent, and
+`--` forwards the rest to `splash serve` unparsed. When you add or change a
+flag, update `usage()`, the README table, and `.envexample` too.
 
-- Default: splash's stdout/stderr is captured to `splash.log`. A `tail -f`
-  instance streams the log during startup so you can watch model downloads and
-  progress messages in real-time.
-- `--live` (`-l`): streams splash output directly to the terminal instead of a
-  log file. Output is interleaved with the script's own status messages.
+## Runtime gotchas
 
-## Gotchas
+- Agents launch only after `wait_for_server` sees `/ready` return 200 (503
+  while the model loads; the endpoint needs no API key). Default is no timeout;
+  `-w SECONDS` bounds it, aborting early if `splash serve` exits.
+- Port resolution: a `--port` in the forwarded args wins, then `SPLASH_PORT`,
+  then 8000. The port is only passed to the agent when it isn't 8000.
+- `stop_existing_splash` kills `pgrep -f "splash serve"` and anything holding
+  the port (`lsof -i :$PORT -sTCP:LISTEN`); it prompts unless `-y`/`-k`.
+- `/dev/tty` is reopened only when stdin isn't already a tty, so TUI agents
+  (opencode/claude/hermes) don't ignore typed input.
+- Without `-s`, every run does `brew update` + `brew upgrade` and may install
+  Homebrew (sudo prompt).
+- Default output goes to `splash.log` and is `tail -f`'d during startup;
+  `--live` streams to the terminal instead.
 
-- The script runs under `#!/bin/sh` (POSIX), not bash-specific features
-- Without `-s`, it always updates Homebrew (`brew update`) and splash (`brew upgrade`), which may take time
-- Without `-s`, it may install Homebrew if not present (prompts for sudo)
-- `--` passes remaining args directly to `splash serve` (not parsed by this script)
-- `.env` is written automatically each run; use `--no-save` to skip persisting
-- `.env` is parsed (not sourced), so values are never executed as code
-- `.envexample` is the tracked template; `.env` is gitignored and user-specific
-- The PATH launcher is named `splashctl`, not `splash`: the script invokes the
-  real `splash` binary internally, so a link named `splash` would recurse
-- `--add-path` may append an `export PATH=...` line to `~/.zshrc` /
-  `~/.bash_profile` / `~/.bashrc`; `--remove-path` removes it (best-effort)
-- `$0` can be the launcher symlink, so the script follows symlinks to find its
-  real directory before locating `.env` and `splash.log`
+## Git gotcha
+
+`splash.log` is **tracked** even though `.gitignore` lists it (it was committed
+before the ignore rule), so it shows as modified after every run. Don't assume
+the ignore entry untracked it; leave it, or `git rm --cached splash.log`.

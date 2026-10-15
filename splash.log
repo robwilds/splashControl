@@ -283,3 +283,5 @@ Splash model unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL is already installed in /Us
 17:02:27 Done · input 28 · cached 0 · output 1,853 · TTFT 0.1s · 83.5 tok/s · 3.6 tok/cycle
 17:03:58 Weights released after 90 s without a request; the next request restores them
 17:03:58 Memory: growth available; resource wait cleared
+18:58:45 Error · model_not_found · POST /v1/chat/completions
+18:58:45 Error · model_not_found · POST /v1/chat/completions
