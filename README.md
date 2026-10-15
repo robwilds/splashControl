@@ -11,7 +11,7 @@ reused on the next run.
 
 Splash dramatically improves tok/s as tested on an m5 macbook air with 24gb ram.
 
-Splash currently only supports qwen3.8 and 3.6 models that are specifically formatted for splash. Refer to the splash github repo link above for more details.
+Splash currently only supports qwen3.8 and 3.6 models that are specifically formatted for splash. Refer to the splash github repo link above for more details. this solution is set to use unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL which is the smaller model and fastest running for any mac with 24gb or above. For MOE class performance, use unsloth/Qwen3.8-27B-GGUF:UD-Q4_K_M. **Always refer to the splash github information for details**
 
 ## Quick Start
 
