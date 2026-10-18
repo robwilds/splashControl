@@ -19,6 +19,10 @@ IDLE_RELEASE=90s
 # Maximum disk cache size for model weights
 MAX_CACHE_DISK=16G
 
+# Context token limit (splash accepts e.g. 100K, where K = 1024 tokens;
+# it can only lower the model's automatic limit)
+MAX_CONTEXT=100K
+
 # Agent to launch after splash starts (none/opencode/hermes/claude)
 AGENT=none
 

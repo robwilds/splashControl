@@ -16,6 +16,9 @@ MODEL_HISTORY_SEP=";"
 MODEL_HISTORY_MAX=10
 IDLE_RELEASE="90s"
 MAX_CACHE_DISK="16G"
+# Context token limit passed as --max-context (splash accepts e.g. 100K,
+# where K = 1024 tokens); 100K is the splashControl default.
+MAX_CONTEXT="100K"
 AGENT="none"
 # Seconds to wait for the server's /ready before giving up when launching an
 # agent. 0 waits indefinitely (until the server is ready or splash exits).
@@ -55,6 +58,7 @@ CONFIG_FILE="${SPLASH_CONTROL_ENV:-$SCRIPT_DIR/.env}"
 MODEL_SET=0
 IDLE_SET=0
 CACHE_SET=0
+CONTEXT_SET=0
 AGENT_SET=0
 LIVE_SET=0
 ASSUME_YES=0
@@ -77,6 +81,7 @@ Options:
   -m, --model MODEL             Model to serve (default: $MODEL)
   -i, --idle-release DURATION   Idle release time (default: $IDLE_RELEASE)
   -c, --max-cache-disk SIZE     Max disk cache size (default: $MAX_CACHE_DISK)
+  -C, --max-context TOKENS      Context token limit (default: $MAX_CONTEXT)
   -y, --yes                     Skip prompts and use defaults for unset values
   -s, --skip-update             Skip the Homebrew / splash install-or-update check
   -a, --agent AGENT             Agent to launch (none/opencode/hermes/claude/browser)
@@ -139,6 +144,7 @@ load_config() {
             MODEL_HISTORY)  MODEL_HISTORY="$val" ;;
             IDLE_RELEASE)   IDLE_RELEASE="$val" ;;
             MAX_CACHE_DISK) MAX_CACHE_DISK="$val" ;;
+            MAX_CONTEXT)    MAX_CONTEXT="$val" ;;
             AGENT)          AGENT="$val" ;;
             PATH_ENTRY)     PATH_ENTRY="$val" ;;
         esac
@@ -157,6 +163,7 @@ MODEL=$MODEL
 MODEL_HISTORY=$MODEL_HISTORY
 IDLE_RELEASE=$IDLE_RELEASE
 MAX_CACHE_DISK=$MAX_CACHE_DISK
+MAX_CONTEXT=$MAX_CONTEXT
 AGENT=$AGENT
 PATH_ENTRY=$PATH_ENTRY
 __EOF__
@@ -549,6 +556,10 @@ while [ $# -gt 0 ]; do
             need_value "$1" "$2"; MAX_CACHE_DISK="$2"; CACHE_SET=1; shift 2 ;;
         --max-cache-disk=*)
             MAX_CACHE_DISK="${1#*=}"; CACHE_SET=1; shift ;;
+        -C|--max-context)
+            need_value "$1" "$2"; MAX_CONTEXT="$2"; CONTEXT_SET=1; shift 2 ;;
+        --max-context=*)
+            MAX_CONTEXT="${1#*=}"; CONTEXT_SET=1; shift ;;
         -y|--yes)
             ASSUME_YES=1; shift ;;
         -s|--skip-update)
@@ -633,6 +644,11 @@ if [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ]; then
         read -r input
         [ -n "$input" ] && MAX_CACHE_DISK="$input"
     fi
+    if [ "$CONTEXT_SET" -eq 0 ]; then
+        printf "Max context [%s]: " "$MAX_CONTEXT"
+        read -r input
+        [ -n "$input" ] && MAX_CONTEXT="$input"
+    fi
 fi
 
 # Ensure the on-PATH launcher if previously opted in, otherwise offer it once
@@ -649,7 +665,7 @@ elif [ "$PATH_ENTRY" != "no" ] && [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ]; then
     esac
 fi
 
-# Remember the model/idle/cache choices for next time
+# Remember the model/idle/cache/context choices for next time
 record_model
 save_config
 
@@ -657,6 +673,7 @@ echo "Starting splash:"
 echo "  model:          $MODEL"
 echo "  idle-release:   $IDLE_RELEASE"
 echo "  max-cache-disk: $MAX_CACHE_DISK"
+echo "  max-context:    $MAX_CONTEXT"
 echo "  agent:          $AGENT"
 
 # Which port the server and a later agent should use
@@ -672,6 +689,7 @@ if [ "$STREAM_SPLASH" -eq 1 ]; then
     splash serve \
         --language-only \
         --max-cache-disk "$MAX_CACHE_DISK" \
+        --max-context "$MAX_CONTEXT" \
         --idle-release "$IDLE_RELEASE" \
         --model "$MODEL" \
         "$@" </dev/null &
@@ -681,6 +699,7 @@ else
     { splash serve \
         --language-only \
         --max-cache-disk "$MAX_CACHE_DISK" \
+        --max-context "$MAX_CONTEXT" \
         --idle-release "$IDLE_RELEASE" \
         --model "$MODEL" \
         "$@" </dev/null >>"$LOGFILE" 2>&1 & }

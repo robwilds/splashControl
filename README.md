@@ -26,8 +26,8 @@ On an interactive first run it:
 
 1. Ensures Homebrew and `splash` (`incoai/tap/splash`) are installed and up to
    date (skip this step with `-s`).
-2. Prompts for the model, idle-release time, and max disk cache (press Enter to
-   accept the default shown in brackets).
+2. Prompts for the model, idle-release time, max disk cache, and max context
+   length (press Enter to accept the default shown in brackets).
 3. Offers to install a `splashctl` launcher on your PATH so you can run it from
    anywhere (see [Run from anywhere](#run-from-anywhere)).
 4. Starts `splash serve` in the background.
@@ -56,6 +56,7 @@ Common non-interactive invocations:
 | `-m, --model MODEL`           | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                                            |
 | `-i, --idle-release DURATION` | `90s`                                     | Time until the idle model is released from memory                         |
 | `-c, --max-cache-disk SIZE`   | `16G`                                     | Maximum disk cache size for model weights                                 |
+| `-C, --max-context TOKENS`    | `100K`                                    | Context token limit (e.g. `64K`); can only lower the model's automatic limit |
 | `-a, --agent AGENT`           | `none`                                    | Agent to launch once ready: `none`/`opencode`/`hermes`/`claude`/`browser` |
 | `-w, --ready-timeout SECONDS` | `0` (wait forever)                        | How long to wait for the server to become ready before launching an agent |
 | `-y, --yes`                   | —                                         | Skip interactive prompts, use defaults                                    |
@@ -72,7 +73,8 @@ Common non-interactive invocations:
 
 Every run resolves values in this order — **CLI options win, then the
 remembered `.env`, then the built-in defaults** — and saves the final model,
-idle release, cache size, agent, and PATH-launcher choice back to `.env`:
+idle release, cache size, context length, agent, and PATH-launcher choice back
+to `.env`:
 
 ```
 ./start_splash.sh -m unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL -c 32G

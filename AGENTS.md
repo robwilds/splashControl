@@ -34,7 +34,10 @@ Thread a new key through **all** of these, or it silently won't persist:
 `load_config` (the `case "$key"`), `save_config` (the heredoc), the arg-parse
 `while [ $# -gt 0 ]` loop, `usage()`, and `.envexample`. Format is `KEY=value`;
 `MODEL_HISTORY` is a `;`-joined, most-recent-first list (model ids never contain
-`;`). Override the config file path with `SPLASH_CONTROL_ENV`.
+`;`). Override the config file path with `SPLASH_CONTROL_ENV`. A key that maps
+to a `splash serve` flag (e.g. `MAX_CONTEXT` -> `--max-context`) must also be
+added to both `splash serve` invocations and, if interactive, to the prompt
+block and the "Starting splash:" summary.
 
 ## Options
 
@@ -58,6 +61,10 @@ flag, update `usage()`, the README table, and `.envexample` too.
   Homebrew (sudo prompt).
 - Default output goes to `splash.log` and is `tail -f`'d during startup;
   `--live` streams to the terminal instead.
+- `splash serve` is launched in two near-identical branches (streamed vs
+  logged), both with explicit `--language-only --max-cache-disk
+  --max-context --idle-release --model` flags. A flag change must be applied
+  to both branches.
 
 ## Git gotcha
 
