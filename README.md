@@ -102,12 +102,16 @@ Select model:
   1) unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL (current)
   2) unsloth/Another-Model-GGUF:Q4_K_M
   3) enter a new model id
-Choice [1-3 / or type a model id]:
+  4) clear model history
+Choice [1-4 / or type a model id]:
 ```
 
-Press Enter to keep the current model, pick a number, or type a model id. The
-history is stored in `.env` as `MODEL_HISTORY` (a `;`-separated list) and is
-safe to edit or trim by hand.
+Press Enter to keep the current model, pick a number, type a model id, or pick
+the trailing option to clear the model history. Clearing wipes the saved history
+(in `.env` as `MODEL_HISTORY`) while keeping the current model selected, so
+previously entered models are no longer offered as menu choices. The history is
+stored in `.env` as `MODEL_HISTORY` (a `;`-separated list) and is safe to edit or
+trim by hand.
 
 ### Run from anywhere
 

@@ -64,6 +64,8 @@ FORGET_CONFIG=0
 FORCE_KILL=0
 ADD_PATH=0
 REMOVE_PATH=0
+# Set when the user clears the model history from the selection menu.
+CLEAR_HISTORY=0
 
 usage() {
     cat <<USAGE
@@ -94,7 +96,8 @@ Before launching an agent the script waits until the local server answers
 not start against a server that is still loading.
 
 When prompting for the model, the current model and models entered before are
-offered as a numbered menu (stored in $CONFIG_FILE).
+offered as a numbered menu (stored in $CONFIG_FILE), including an option to
+clear the model history.
 
 Chosen values are remembered in:
   $CONFIG_FILE
@@ -163,6 +166,9 @@ __EOF__
 # Remember the model just used at the front of the history (most recent first),
 # dropping duplicates and keeping at most MODEL_HISTORY_MAX entries.
 record_model() {
+    # A user-initiated clear from the selection menu skips re-recording, so the
+    # saved history stays empty until a new model is actually chosen.
+    [ "$CLEAR_HISTORY" -eq 1 ] && return 0
     [ -n "$MODEL" ] || return 0
     new_history="$MODEL"
     count=1
@@ -180,7 +186,8 @@ record_model() {
 }
 
 # Present the current model and previously entered models as a numbered menu.
-# Press Enter to keep the current model, pick a number, or type a model id.
+# Press Enter to keep the current model, pick a number, type a model id, or pick
+# the trailing option to clear the saved model history.
 select_model() {
     printf "Select model:\n"
     printf "  1) %s (current)\n" "$MODEL"
@@ -197,8 +204,10 @@ select_model() {
     done
     IFS=$old_ifs
     new_option=$((menu_count + 1))
+    clear_option=$((new_option + 1))
     printf "  %s) enter a new model id\n" "$new_option"
-    printf "Choice [1-%s / or type a model id]: " "$new_option"
+    printf "  %s) clear model history\n" "$clear_option"
+    printf "Choice [1-%s / or type a model id]: " "$clear_option"
     read -r model_choice || model_choice=""
     case "$model_choice" in
         '')
@@ -206,7 +215,12 @@ select_model() {
         *[!0-9]*)
             MODEL="$model_choice" ;;  # a literal model id typed by the user
         *)
-            if [ "$model_choice" -eq "$new_option" ]; then
+            if [ "$model_choice" -eq "$clear_option" ]; then
+                # Drop the saved history but keep serving the current model.
+                CLEAR_HISTORY=1
+                MODEL_HISTORY=""
+                printf "Model history cleared.\n"
+            elif [ "$model_choice" -eq "$new_option" ]; then
                 printf "Model id: "
                 read -r input || input=""
                 [ -n "$input" ] && MODEL="$input"
