@@ -7,7 +7,11 @@
 # is installed / up to date before launching.
 
 # Defaults
-MODEL="unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL"
+# The default model: always offered in the model menu and restored as the
+# current model by "clear model history". Remembered in .env as DEFAULT_MODEL.
+DEFAULT_MODEL="unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL"
+# The model to serve this run; starts as the default, remembered as MODEL.
+MODEL="$DEFAULT_MODEL"
 # Models entered before, most recent first. Stored as a single ';'-separated
 # value in .env (model ids never contain ';'), so the model prompt can offer
 # the current and previously entered models as a numbered menu.
@@ -70,6 +74,9 @@ ADD_PATH=0
 REMOVE_PATH=0
 # Set when the user clears the model history from the selection menu.
 CLEAR_HISTORY=0
+# Set once wait_for_server has confirmed /ready, so the wait is not repeated
+# before launching the chosen agent.
+SERVER_WAITED=0
 
 usage() {
     cat <<USAGE
@@ -79,6 +86,9 @@ Any value not given as an option is prompted for (Enter = keep default).
 
 Options:
   -m, --model MODEL             Model to serve (default: $MODEL)
+  -d, --default-model MODEL     Default model always offered in the model menu
+                                and restored by "clear model history"
+                                (default: $DEFAULT_MODEL)
   -i, --idle-release DURATION   Idle release time (default: $IDLE_RELEASE)
   -c, --max-cache-disk SIZE     Max disk cache size (default: $MAX_CACHE_DISK)
   -C, --max-context TOKENS      Context token limit (default: $MAX_CONTEXT)
@@ -96,13 +106,18 @@ Options:
       --remove-path             Remove the 'splashctl' launcher and exit
   -h, --help                    Show this help
 
-Before launching an agent the script waits until the local server answers
-/ready (splash reports "Ready" once the model is loaded), so the agent does
-not start against a server that is still loading.
+When no agent is given on the command line, the script waits until the local
+server answers /ready (splash reports "Ready" once the model is loaded) before
+showing the agent menu, streaming splash's startup output (model download,
+load progress) to the terminal while it waits. An agent given via -a is
+launched only after the same /ready check, so it never starts against a
+server that is still loading.
 
-When prompting for the model, the current model and models entered before are
-offered as a numbered menu (stored in $CONFIG_FILE), including an option to
-clear the model history.
+When prompting for the model, the current model, the default model, and models
+entered before are offered as a numbered menu (stored in $CONFIG_FILE). The
+default model is always offered, even after clearing the model history;
+clearing wipes the history, restores the default model as the current one, and
+re-displays the menu so you can pick or enter a new model right away.
 
 Chosen values are remembered in:
   $CONFIG_FILE
@@ -128,6 +143,7 @@ need_value() {
 # Deliberately a tiny parser rather than sourcing the file.
 load_config() {
     [ -f "$CONFIG_FILE" ] || return 0
+    model_from_config=0
     while IFS= read -r line || [ -n "$line" ]; do
         line=$(printf '%s' "$line" | tr -d '\r')
         case "$line" in
@@ -140,7 +156,8 @@ load_config() {
             \'*\') val=${val#\'}; val=${val%\'} ;;
         esac
         case "$key" in
-            MODEL)          MODEL="$val" ;;
+            DEFAULT_MODEL)  DEFAULT_MODEL="$val" ;;
+            MODEL)          MODEL="$val"; model_from_config=1 ;;
             MODEL_HISTORY)  MODEL_HISTORY="$val" ;;
             IDLE_RELEASE)   IDLE_RELEASE="$val" ;;
             MAX_CACHE_DISK) MAX_CACHE_DISK="$val" ;;
@@ -149,6 +166,9 @@ load_config() {
             PATH_ENTRY)     PATH_ENTRY="$val" ;;
         esac
     done < "$CONFIG_FILE"
+    # With no remembered MODEL, the current model follows the default (which
+    # the config may have overridden above).
+    [ "$model_from_config" -eq 1 ] || MODEL="$DEFAULT_MODEL"
 }
 
 # Write the resolved values back so the next run can reuse them.
@@ -159,6 +179,7 @@ save_config() {
     umask 077
     cat > "$tmp" <<__EOF__
 # splashControl remembered settings (auto-generated; safe to edit or delete)
+DEFAULT_MODEL=$DEFAULT_MODEL
 MODEL=$MODEL
 MODEL_HISTORY=$MODEL_HISTORY
 IDLE_RELEASE=$IDLE_RELEASE
@@ -173,9 +194,12 @@ __EOF__
 # Remember the model just used at the front of the history (most recent first),
 # dropping duplicates and keeping at most MODEL_HISTORY_MAX entries.
 record_model() {
-    # A user-initiated clear from the selection menu skips re-recording, so the
+    # A user-initiated clear from the selection menu leaves the history empty
+    # unless a genuinely new (non-default) model was chosen afterwards, so the
     # saved history stays empty until a new model is actually chosen.
-    [ "$CLEAR_HISTORY" -eq 1 ] && return 0
+    if [ "$CLEAR_HISTORY" -eq 1 ] && [ "$MODEL" = "$DEFAULT_MODEL" ]; then
+        return 0
+    fi
     [ -n "$MODEL" ] || return 0
     new_history="$MODEL"
     count=1
@@ -192,51 +216,77 @@ record_model() {
     MODEL_HISTORY="$new_history"
 }
 
-# Present the current model and previously entered models as a numbered menu.
+# Present the current model, the default model, and previously entered models
+# as a numbered menu. The default model is always offered, even when it is
+# neither the current model nor in the history (e.g. right after clearing).
 # Press Enter to keep the current model, pick a number, type a model id, or pick
-# the trailing option to clear the saved model history.
+# the trailing option to clear the saved model history. Clearing wipes the
+# history and restores the default model as the current one, then re-displays
+# the menu; the menu is left by picking a model, typing an id, or pressing Enter.
 select_model() {
-    printf "Select model:\n"
-    printf "  1) %s (current)\n" "$MODEL"
-    menu_count=1
-    menu_models="$MODEL"
-    old_ifs=$IFS
-    IFS="$MODEL_HISTORY_SEP"
-    for m in $MODEL_HISTORY; do
-        [ -n "$m" ] || continue
-        [ "$m" = "$MODEL" ] && continue
-        menu_count=$((menu_count + 1))
-        printf "  %s) %s\n" "$menu_count" "$m"
-        menu_models="$menu_models$MODEL_HISTORY_SEP$m"
+    while :; do
+        printf "Select model:\n"
+        printf "  1) %s (current)\n" "$MODEL"
+        menu_count=1
+        menu_models="$MODEL"
+        old_ifs=$IFS
+        IFS="$MODEL_HISTORY_SEP"
+        for m in $MODEL_HISTORY; do
+            [ -n "$m" ] || continue
+            [ "$m" = "$MODEL" ] && continue
+            menu_count=$((menu_count + 1))
+            printf "  %s) %s\n" "$menu_count" "$m"
+            menu_models="$menu_models$MODEL_HISTORY_SEP$m"
+        done
+        IFS=$old_ifs
+        # Offer the default model too when the current model and history
+        # between them don't already include it.
+        default_shown=0
+        [ "$MODEL" = "$DEFAULT_MODEL" ] && default_shown=1
+        old_ifs=$IFS
+        IFS="$MODEL_HISTORY_SEP"
+        for m in $MODEL_HISTORY; do
+            [ "$m" = "$DEFAULT_MODEL" ] && { default_shown=1; break; }
+        done
+        IFS=$old_ifs
+        if [ "$default_shown" -eq 0 ]; then
+            menu_count=$((menu_count + 1))
+            printf "  %s) %s (default)\n" "$menu_count" "$DEFAULT_MODEL"
+            menu_models="$menu_models$MODEL_HISTORY_SEP$DEFAULT_MODEL"
+        fi
+        new_option=$((menu_count + 1))
+        clear_option=$((new_option + 1))
+        printf "  %s) enter a new model id\n" "$new_option"
+        printf "  %s) clear model history\n" "$clear_option"
+        printf "Choice [1-%s / or type a model id]: " "$clear_option"
+        read -r model_choice || model_choice=""
+        case "$model_choice" in
+            '')
+                return 0 ;;
+            *[!0-9]*)
+                MODEL="$model_choice"; return 0 ;;  # a literal model id typed by the user
+            *)
+                if [ "$model_choice" -eq "$clear_option" ]; then
+                    # Drop the saved history and restore the default model as
+                    # the current one, then re-display the menu.
+                    CLEAR_HISTORY=1
+                    MODEL_HISTORY=""
+                    MODEL="$DEFAULT_MODEL"
+                    printf "Model history cleared; default model restored.\n"
+                elif [ "$model_choice" -eq "$new_option" ]; then
+                    printf "Model id: "
+                    read -r input || input=""
+                    [ -n "$input" ] && MODEL="$input"
+                    return 0
+                elif [ "$model_choice" -ge 1 ] && [ "$model_choice" -le "$menu_count" ]; then
+                    MODEL=$(printf '%s' "$menu_models" | cut -d"$MODEL_HISTORY_SEP" -f "$model_choice")
+                    return 0
+                else
+                    printf "Invalid choice; keeping current model.\n" >&2
+                    return 0
+                fi ;;
+        esac
     done
-    IFS=$old_ifs
-    new_option=$((menu_count + 1))
-    clear_option=$((new_option + 1))
-    printf "  %s) enter a new model id\n" "$new_option"
-    printf "  %s) clear model history\n" "$clear_option"
-    printf "Choice [1-%s / or type a model id]: " "$clear_option"
-    read -r model_choice || model_choice=""
-    case "$model_choice" in
-        '')
-            : ;;  # keep the current model
-        *[!0-9]*)
-            MODEL="$model_choice" ;;  # a literal model id typed by the user
-        *)
-            if [ "$model_choice" -eq "$clear_option" ]; then
-                # Drop the saved history but keep serving the current model.
-                CLEAR_HISTORY=1
-                MODEL_HISTORY=""
-                printf "Model history cleared.\n"
-            elif [ "$model_choice" -eq "$new_option" ]; then
-                printf "Model id: "
-                read -r input || input=""
-                [ -n "$input" ] && MODEL="$input"
-            elif [ "$model_choice" -ge 1 ] && [ "$model_choice" -le "$menu_count" ]; then
-                MODEL=$(printf '%s' "$menu_models" | cut -d"$MODEL_HISTORY_SEP" -f "$model_choice")
-            else
-                printf "Invalid choice; keeping current model.\n" >&2
-            fi ;;
-    esac
 }
 
 load_brew_env() {
@@ -525,6 +575,7 @@ wait_for_server() {
         if server_ready; then
             [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
             printf "\nSplash is ready on port %s.\n" "$PORT"
+            SERVER_WAITED=1
             return 0
         fi
         if [ "$READY_TIMEOUT" -gt 0 ] && [ "$waited" -ge "$READY_TIMEOUT" ]; then
@@ -548,6 +599,10 @@ while [ $# -gt 0 ]; do
             need_value "$1" "$2"; MODEL="$2"; MODEL_SET=1; shift 2 ;;
         --model=*)
             MODEL="${1#*=}"; MODEL_SET=1; shift ;;
+        -d|--default-model)
+            need_value "$1" "$2"; DEFAULT_MODEL="$2"; shift 2 ;;
+        --default-model=*)
+            DEFAULT_MODEL="${1#*=}"; shift ;;
         -i|--idle-release)
             need_value "$1" "$2"; IDLE_RELEASE="$2"; IDLE_SET=1; shift 2 ;;
         --idle-release=*)
@@ -679,46 +734,52 @@ echo "  agent:          $AGENT"
 # Which port the server and a later agent should use
 resolve_port "$@"
 
-stop_existing_splash "$@"
-
-# Start splash serve. By default output is captured to splash.log; with --live
-# it streams directly to the terminal (so you see model download progress in
-# real-time, but the spinner and agent startup text will also appear).
-if [ "$STREAM_SPLASH" -eq 1 ]; then
-    echo "Starting splash (streaming to terminal)..."
-    splash serve \
-        --language-only \
-        --max-cache-disk "$MAX_CACHE_DISK" \
-        --max-context "$MAX_CONTEXT" \
-        --idle-release "$IDLE_RELEASE" \
-        --model "$MODEL" \
-        "$@" </dev/null &
+SPLASH_ALREADY_RUNNING=0
+if server_ready; then
+    SPLASH_ALREADY_RUNNING=1
+    echo "Splash engine already running on port $PORT; skipping startup."
 else
-    LOGFILE="$SCRIPT_DIR/splash.log"
-    echo "Starting splash (logs: $LOGFILE)"
-    { splash serve \
-        --language-only \
-        --max-cache-disk "$MAX_CACHE_DISK" \
-        --max-context "$MAX_CONTEXT" \
-        --idle-release "$IDLE_RELEASE" \
-        --model "$MODEL" \
-        "$@" </dev/null >>"$LOGFILE" 2>&1 & }
-fi
-SPINNER=$!
-disown "$SPINNER" 2>/dev/null || true
-sleep 3
+    stop_existing_splash "$@"
 
-if ! kill -0 "$SPINNER" 2>/dev/null; then
-    echo "Warning: splash serve exited quickly; may not be ready" >&2
-fi
+    # Start splash serve. By default output is captured to splash.log; with --live
+    # it streams directly to the terminal (so you see model download progress in
+    # real-time, but the spinner and agent startup text will also appear).
+    if [ "$STREAM_SPLASH" -eq 1 ]; then
+        echo "Starting splash (streaming to terminal)..."
+        splash serve \
+            --language-only \
+            --max-cache-disk "$MAX_CACHE_DISK" \
+            --max-context "$MAX_CONTEXT" \
+            --idle-release "$IDLE_RELEASE" \
+            --model "$MODEL" \
+            "$@" </dev/null &
+    else
+        LOGFILE="$SCRIPT_DIR/splash.log"
+        echo "Starting splash (logs: $LOGFILE)"
+        { splash serve \
+            --language-only \
+            --max-cache-disk "$MAX_CACHE_DISK" \
+            --max-context "$MAX_CONTEXT" \
+            --idle-release "$IDLE_RELEASE" \
+            --model "$MODEL" \
+            "$@" </dev/null >>"$LOGFILE" 2>&1 & }
+    fi
+    SPINNER=$!
+    disown "$SPINNER" 2>/dev/null || true
+    sleep 3
 
-# Reclaim the terminal only when stdin is not already one. Re-opening
-# /dev/tty while it is already stdin makes the TUI agents (opencode,
-# claude, hermes) ignore typed input.
-if [ -e /dev/tty ] && [ ! -t 0 ]; then
-    exec </dev/tty
+    if ! kill -0 "$SPINNER" 2>/dev/null; then
+        echo "Warning: splash serve exited quickly; may not be ready" >&2
+    fi
+
+    # Reclaim the terminal only when stdin is not already one. Re-opening
+    # /dev/tty while it is already stdin makes the TUI agents (opencode,
+    # claude, hermes) ignore typed input.
+    if [ -e /dev/tty ] && [ ! -t 0 ]; then
+        exec </dev/tty
+    fi
+    printf "\nSplash is starting on port %s.\n\n" "$PORT"
 fi
-printf "\nSplash is starting on port %s.\n\n" "$PORT"
 
 # Agent selection menu
 select_agent() {
@@ -739,10 +800,24 @@ select_agent() {
     esac
 }
 
-# Use CLI value if set, otherwise show menu
+# If splash is already running, mark server as ready
+if [ "$SPLASH_ALREADY_RUNNING" -eq 1 ]; then
+    SERVER_WAITED=1
+fi
+
+# Use CLI value if set, otherwise wait for the server and show the menu.
+# The wait comes first so splash's startup output (model download, load
+# progress) is visible on screen while the menu is up; wait_for_server tails
+# splash.log in real time unless --live already streams to the terminal.
 if [ "$AGENT_SET" -eq 1 ] || [ "$ASSUME_YES" -eq 1 ]; then
     [ -z "$AGENT" ] && AGENT="none"
+    [ "$SPLASH_ALREADY_RUNNING" -eq 1 ] && [ "$SERVER_WAITED" -eq 0 ] && SERVER_WAITED=1
 else
+    if [ "$SPLASH_ALREADY_RUNNING" -eq 1 ]; then
+        SERVER_WAITED=1
+    else
+        wait_for_server || exit 1
+    fi
     select_agent
 fi
 
@@ -752,7 +827,7 @@ save_config
 if [ "$AGENT" != "none" ]; then
     case "$AGENT" in
         browser)
-            wait_for_server || exit 1
+            [ "$SERVER_WAITED" -eq 1 ] || wait_for_server || exit 1
             echo "Opening chat UI in browser..."
             if command -v open >/dev/null 2>&1; then
                 open "http://localhost:$PORT"
@@ -768,7 +843,7 @@ if [ "$AGENT" != "none" ]; then
             wait "$SPINNER"
             ;;
         *)
-            wait_for_server || exit 1
+            [ "$SERVER_WAITED" -eq 1 ] || wait_for_server || exit 1
             echo "Launching splash $AGENT..."
             if [ "$PORT" != "$DEFAULT_PORT" ]; then
                 exec splash "$AGENT" --port "$PORT"

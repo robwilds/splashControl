@@ -54,11 +54,12 @@ Common non-interactive invocations:
 | Option                        | Default                                   | Description                                                               |
 | ----------------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
 | `-m, --model MODEL`           | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Model to serve                                                            |
+| `-d, --default-model MODEL`   | `unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL` | Default model: always offered in the model menu and restored by "clear model history" |
 | `-i, --idle-release DURATION` | `90s`                                     | Time until the idle model is released from memory                         |
 | `-c, --max-cache-disk SIZE`   | `16G`                                     | Maximum disk cache size for model weights                                 |
 | `-C, --max-context TOKENS`    | `100K`                                    | Context token limit (e.g. `64K`); can only lower the model's automatic limit |
 | `-a, --agent AGENT`           | `none`                                    | Agent to launch once ready: `none`/`opencode`/`hermes`/`claude`/`browser` |
-| `-w, --ready-timeout SECONDS` | `0` (wait forever)                        | How long to wait for the server to become ready before launching an agent |
+| `-w, --ready-timeout SECONDS` | `0` (wait forever)                        | How long to wait for the server to become ready (before the agent menu or launching an agent) |
 | `-y, --yes`                   | —                                         | Skip interactive prompts, use defaults                                    |
 | `-s, --skip-update`           | —                                         | Skip the Homebrew / splash install-or-update check                        |
 | `-l, --live`                  | —                                         | Stream splash output directly to the terminal                             |
@@ -96,24 +97,28 @@ cp .envexample .env
 
 ### Model history
 
-The interactive model prompt shows a numbered menu of the current model plus
-the models you have entered before (most recent first), capped at 10:
+The interactive model prompt shows a numbered menu of the current model (the
+one you ran last), the default model, and the models you have entered before
+(most recent first), capped at 10:
 
 ```
 Select model:
-  1) unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL (current)
-  2) unsloth/Another-Model-GGUF:Q4_K_M
+  1) unsloth/Another-Model-GGUF:Q4_K_M (current)
+  2) unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL (default)
   3) enter a new model id
   4) clear model history
 Choice [1-4 / or type a model id]:
 ```
 
-Press Enter to keep the current model, pick a number, type a model id, or pick
-the trailing option to clear the model history. Clearing wipes the saved history
-(in `.env` as `MODEL_HISTORY`) while keeping the current model selected, so
-previously entered models are no longer offered as menu choices. The history is
-stored in `.env` as `MODEL_HISTORY` (a `;`-separated list) and is safe to edit or
-trim by hand.
+The default model is always offered, even when it is neither the current model
+nor in the history — so it remains available after clearing. Press Enter to
+keep the current model, pick a number, type a model id, or pick the trailing
+option to clear the model history. Clearing wipes the saved history (in `.env`
+as `MODEL_HISTORY`), restores the default model as the current one, then
+re-displays the menu so you can pick or enter a new model right away. The
+default itself is remembered in `.env` as `DEFAULT_MODEL` (override per run
+with `-d/--default-model`). The history is stored in `.env` as `MODEL_HISTORY`
+(a `;`-separated list) and is safe to edit or trim by hand.
 
 ### Run from anywhere
 
@@ -171,7 +176,7 @@ splashctl                      # from anywhere
 ./start_splash.sh --live
 ```
 
-When splash starts, it runs in the background. If no agent is selected, splash remains running and you can press Ctrl+Z to suspend it or kill its PID to stop. If an agent is chosen (via prompt or `-a`), the script first waits until the server reports ready (its `/ready` endpoint answers `200`, which happens once the model has finished loading) and only then launches the agent. This avoids `splash <agent>` failing with "No ready Splash server" while the model is still loading. The wait has no timeout by default; pass `-w SECONDS` to bound it. If splash is served on a non-default port (via `--port` or `SPLASH_PORT`), the script passes that port on to the agent.
+When splash starts, it runs in the background. If no agent is selected, splash remains running and you can press Ctrl+Z to suspend it or kill its PID to stop. When no agent was given on the command line, the script first waits until the server reports ready (its `/ready` endpoint answers `200`, which happens once the model has finished loading) and only then shows the agent menu — so you can watch model downloads and load progress while choosing. An agent given via `-a` is launched after the same ready check. This avoids `splash <agent>` failing with "No ready Splash server" while the model is still loading. The wait has no timeout by default; pass `-w SECONDS` to bound it. If splash is served on a non-default port (via `--port` or `SPLASH_PORT`), the script passes that port on to the agent.
 
 Before starting, the script stops any existing `splash serve` and anything else
 holding the port, prompting first unless `-y`/`-k` was given.
@@ -179,8 +184,9 @@ holding the port, prompting first unless `-y`/`-k` was given.
 ### Splash output
 
 By default splash's output is captured to `splash.log` in the same directory as
-the script. While waiting for the server to become ready, `tail -f` streams the
-log to your terminal so you can watch model downloads and progress messages in
+the script. While waiting for the server to become ready (before the agent
+menu, or before launching a `-a` agent), `tail -f` streams the log to your
+terminal so you can watch model downloads and progress messages in
 real-time. You can also inspect it at any time:
 
 ```bash

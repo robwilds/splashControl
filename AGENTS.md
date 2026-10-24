@@ -48,8 +48,11 @@ flag, update `usage()`, the README table, and `.envexample` too.
 
 ## Runtime gotchas
 
-- Agents launch only after `wait_for_server` sees `/ready` return 200 (503
-  while the model loads; the endpoint needs no API key). Default is no timeout;
+- `wait_for_server` blocks until `/ready` returns 200 (503 while the model
+  loads; the endpoint needs no API key). Interactive runs show the agent menu
+  only after that wait, so splash's download/load progress is visible while
+  choosing; `-a`/`-y` runs wait only in the agent-launch branches (guarded by
+  `SERVER_WAITED` so the wait never runs twice). Default is no timeout;
   `-w SECONDS` bounds it, aborting early if `splash serve` exits.
 - Port resolution: a `--port` in the forwarded args wins, then `SPLASH_PORT`,
   then 8000. The port is only passed to the agent when it isn't 8000.

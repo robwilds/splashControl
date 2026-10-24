@@ -5,13 +5,19 @@
 #
 # Safe to edit by hand. Manually edit `.env` if you have one.
 
+# Default model: always offered in the model menu and restored as the current
+# model when you pick "clear model history". Change this to make a different
+# model your permanent fallback.
+DEFAULT_MODEL=unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+
 # Model to serve (splash model identifier, e.g. from huggingface.co)
 MODEL=unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
 
 # Previously entered models, most recent first, separated by ";".
 # start_splash.sh shows these as numbered options in the model menu and
-# updates this automatically; edit or trim it by hand if you like.
-MODEL_HISTORY=unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q2_K_XL
+# updates this automatically; edit or trim it by hand if you like. The
+# DEFAULT_MODEL is always offered even when it is not listed here.
+MODEL_HISTORY=
 
 # Time until the idle model is released from memory (Go duration string)
 IDLE_RELEASE=90s
