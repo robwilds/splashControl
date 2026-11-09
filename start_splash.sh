@@ -70,6 +70,7 @@ SKIP_UPDATE=0
 SAVE_CONFIG=1
 FORGET_CONFIG=0
 FORCE_KILL=0
+FORCE_RESTART=0
 ADD_PATH=0
 REMOVE_PATH=0
 # Set when the user clears the model history from the selection menu.
@@ -96,7 +97,9 @@ Options:
   -s, --skip-update             Skip the Homebrew / splash install-or-update check
   -a, --agent AGENT             Agent to launch (none/opencode/hermes/claude/browser)
   -l, --live                    Stream splash output to terminal directly
-  -k, --kill                    Stop existing splash serve without prompting
+  -k, --kill                    Stop an existing splash serve without prompting
+  -r, --restart                 Stop an existing splash serve and start fresh,
+                                even if it is already ready (no prompting)
   -w, --ready-timeout SECONDS   Give up waiting for the server after SECONDS
                                 when launching an agent (0 = wait forever)
       --no-save                 Do not remember the chosen values this run
@@ -118,6 +121,11 @@ entered before are offered as a numbered menu (stored in $CONFIG_FILE). The
 default model is always offered, even after clearing the model history;
 clearing wipes the history, restores the default model as the current one, and
 re-displays the menu so you can pick or enter a new model right away.
+
+If something is already listening on the port, the script asks whether to use
+it and continue, kill it and start fresh, or abort (default: use it). -y keeps
+a ready server; -k/--restart replace it without asking. The check is scoped to
+the selected port, so splash on another port is left alone.
 
 Chosen values are remembered in:
   $CONFIG_FILE
@@ -467,34 +475,59 @@ resolve_port() {
     PORT="${SPLASH_PORT:-$DEFAULT_PORT}"
 }
 
-# Find and optionally stop any existing splash serve process.
-# Prompts the user unless ASSUME_YES or FORCE_KILL is set.
+# PIDs listening on the selected port, space-separated and de-duplicated.
+# Shared by the already-running check and stop_existing_splash so they never
+# disagree about what counts as "running" on $PORT.
+SPLASH_PIDS=""
+
+add_splash_pid() {
+    [ -n "$1" ] || return 0
+    case " $SPLASH_PIDS " in
+        *" $1 "*) ;;
+        *) SPLASH_PIDS="$SPLASH_PIDS $1" ;;
+    esac
+}
+
+# Find the processes holding $PORT. Scoped to the selected port so a splash
+# instance on another port is left alone. A splash serve that has already bound
+# the port is found via lsof; one still starting is matched via pgrep plus an
+# explicit --port for this port.
+find_splash_pids() {
+    SPLASH_PIDS=""
+    for p in $(lsof -t -i :"$PORT" -sTCP:LISTEN 2>/dev/null); do
+        add_splash_pid "$p"
+    done
+    for p in $(pgrep -f "splash serve" 2>/dev/null); do
+        if lsof -t -a -p "$p" -i :"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+            add_splash_pid "$p"
+        elif ps -o command= -p "$p" 2>/dev/null | grep -Eq -- "--port([= ]+$PORT)( |\$)"; then
+            # Not listening yet, but explicitly configured for this port.
+            add_splash_pid "$p"
+        fi
+    done
+}
+
+# Stop the processes found by find_splash_pids (plus their children) and wait
+# for the port to free. Prompts unless ASSUME_YES, FORCE_KILL or FORCE_RESTART
+# is set, in which case it stops them without asking.
 stop_existing_splash() {
-    # Collect PIDs to kill: splash serve + its children, plus anything else on the port.
-    to_kill=""
-    existing=$(pgrep -f "splash serve" 2>/dev/null)
-    if [ -n "$existing" ]; then
-        echo "Existing splash serve found (PID $existing)"
-        for p in $existing $(pgrep -P "$existing" 2>/dev/null); do
-            to_kill="$to_kill $p"
-        done
-    fi
-
-    # Also grab everything else listening on the port (avoids missing non-splash holders).
-    extra=$(lsof -t -i :"$PORT" -sTCP:LISTEN 2>/dev/null)
-    if [ -n "$extra" ]; then
-        echo "  Port $PORT held by PID(s) $extra"
-        for p in $extra; do
-            case " $to_kill " in *" $p "*) ;; *) to_kill="$to_kill $p" ;; esac
-        done
-    fi
-
-    if [ -z "$(echo $to_kill)" ]; then
+    if [ -z "$SPLASH_PIDS" ]; then
         return 0
     fi
 
-    # Ask before killing unless user said -y or -k
-    if [ "$ASSUME_YES" -eq 1 ] || [ "$FORCE_KILL" -eq 1 ]; then
+    # Collect PIDs to kill: the port holders plus their children.
+    to_kill=""
+    for p in $SPLASH_PIDS; do
+        to_kill="$to_kill $p"
+        for c in $(pgrep -P "$p" 2>/dev/null); do
+            to_kill="$to_kill $c"
+        done
+    done
+
+    echo "Existing process on port $PORT (PID $(echo $SPLASH_PIDS))"
+
+    # Ask before killing unless the user said -y, -k or --restart
+    if [ "$ASSUME_YES" -eq 1 ] || [ "$FORCE_KILL" -eq 1 ] || [ "$FORCE_RESTART" -eq 1 ]; then
         echo "Stopping it..."
     else
         printf "Stop it and continue? [y/N]: "
@@ -508,7 +541,7 @@ stop_existing_splash() {
         esac
     fi
 
-    # Kill everything we found
+    # Kill everything we found (may contain duplicates; harmless).
     for p in $to_kill; do
         kill -9 "$p" 2>/dev/null
     done
@@ -530,6 +563,8 @@ stop_existing_splash() {
         echo "Exiting." >&2
         exit 1
     fi
+
+    SPLASH_PIDS=""
 }
 
 # True once the local server reports ready on $PORT. /ready answers 200 only
@@ -621,6 +656,8 @@ while [ $# -gt 0 ]; do
             SKIP_UPDATE=1; shift ;;
         -k|--kill)
             FORCE_KILL=1; shift ;;
+        -r|--restart)
+            FORCE_RESTART=1; shift ;;
         -a|--agent)
             need_value "$1" "$2"; AGENT="$2"; AGENT_SET=1; shift 2 ;;
         --agent=*)
@@ -734,13 +771,42 @@ echo "  agent:          $AGENT"
 # Which port the server and a later agent should use
 resolve_port "$@"
 
+# Always check the selected port for a running server, even one that is ready:
+# the user gets the choice to reuse it or replace it.
 SPLASH_ALREADY_RUNNING=0
-if server_ready; then
-    SPLASH_ALREADY_RUNNING=1
-    echo "Splash engine already running on port $PORT; skipping startup."
-else
-    stop_existing_splash "$@"
+find_splash_pids
+if [ -n "$SPLASH_PIDS" ]; then
+    if server_ready; then
+        # Healthy server on this port. -k/--restart replace it; -y and
+        # non-interactive runs keep it so scripts never silently kill a
+        # server another agent may be using.
+        if [ "$FORCE_KILL" -eq 1 ] || [ "$FORCE_RESTART" -eq 1 ]; then
+            stop_existing_splash
+        elif [ "$ASSUME_YES" -eq 1 ] || [ ! -t 0 ]; then
+            SPLASH_ALREADY_RUNNING=1
+            echo "Splash engine already running on port $PORT; using it."
+        else
+            printf "Splash engine already running on port %s (PID %s).\n" \
+                "$PORT" "$(echo $SPLASH_PIDS)"
+            printf "  [u] Use it and continue\n"
+            printf "  [k] Kill it and start fresh\n"
+            printf "  [a] Abort\n"
+            printf "Choice [u]: "
+            read -r use_existing || use_existing=""
+            case "$use_existing" in
+                [Kk]*) FORCE_KILL=1; stop_existing_splash ;;
+                [Aa]*) echo "Aborted." >&2; exit 0 ;;
+                *)     SPLASH_ALREADY_RUNNING=1 ;;
+            esac
+        fi
+    else
+        # Something holds the port but is not a usable server (stale process,
+        # another service, or splash still loading): offer to clear it.
+        stop_existing_splash
+    fi
+fi
 
+if [ "$SPLASH_ALREADY_RUNNING" -eq 0 ]; then
     # Start splash serve. By default output is captured to splash.log; with --live
     # it streams directly to the terminal (so you see model download progress in
     # real-time, but the spinner and agent startup text will also appear).
@@ -838,9 +904,13 @@ if [ "$AGENT" != "none" ]; then
             else
                 echo "Cannot determine browser opener; visit: http://localhost:$PORT" >&2
             fi
-            echo "Splash running in background (PID $SPINNER)."
-            echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
-            wait "$SPINNER"
+            if [ "$SPLASH_ALREADY_RUNNING" -eq 1 ]; then
+                echo "Splash already running on port $PORT (PID $(echo $SPLASH_PIDS)); leaving it running."
+            else
+                echo "Splash running in background (PID $SPINNER)."
+                echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
+                wait "$SPINNER"
+            fi
             ;;
         *)
             [ "$SERVER_WAITED" -eq 1 ] || wait_for_server || exit 1
@@ -853,7 +923,11 @@ if [ "$AGENT" != "none" ]; then
             ;;
     esac
 else
-    echo "No agent selected. Splash running in background (PID $SPINNER)."
-    echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
-    wait "$SPINNER"
+    if [ "$SPLASH_ALREADY_RUNNING" -eq 1 ]; then
+        echo "No agent selected. Splash already running on port $PORT (PID $(echo $SPLASH_PIDS)); leaving it running."
+    else
+        echo "No agent selected. Splash running in background (PID $SPINNER)."
+        echo "Use ctrl+Z to suspend or kill $SPINNER to stop."
+        wait "$SPINNER"
+    fi
 fi

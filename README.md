@@ -64,6 +64,7 @@ Common non-interactive invocations:
 | `-s, --skip-update`           | —                                         | Skip the Homebrew / splash install-or-update check                        |
 | `-l, --live`                  | —                                         | Stream splash output directly to the terminal                             |
 | `-k, --kill`                  | —                                         | Stop an existing `splash serve` without prompting                         |
+| `-r, --restart`               | —                                         | Stop an existing `splash serve` and start fresh, even if it is ready      |
 | `--no-save`                   | —                                         | Do not remember the chosen values this run                                |
 | `--forget`                    | —                                         | Delete the remembered values and exit                                     |
 | `--add-path`                  | —                                         | Install a `splashctl` launcher on your PATH and exit                      |
@@ -169,6 +170,9 @@ splashctl                      # from anywhere
 # Stop an existing splash serve and restart without prompting
 ./start_splash.sh -y -k
 
+# Replace a running (even ready) splash serve without prompting
+./start_splash.sh --restart
+
 # Pass extra flags to splash serve
 ./start_splash.sh -- --port 8080
 
@@ -178,8 +182,13 @@ splashctl                      # from anywhere
 
 When splash starts, it runs in the background. If no agent is selected, splash remains running and you can press Ctrl+Z to suspend it or kill its PID to stop. When no agent was given on the command line, the script first waits until the server reports ready (its `/ready` endpoint answers `200`, which happens once the model has finished loading) and only then shows the agent menu — so you can watch model downloads and load progress while choosing. An agent given via `-a` is launched after the same ready check. This avoids `splash <agent>` failing with "No ready Splash server" while the model is still loading. The wait has no timeout by default; pass `-w SECONDS` to bound it. If splash is served on a non-default port (via `--port` or `SPLASH_PORT`), the script passes that port on to the agent.
 
-Before starting, the script stops any existing `splash serve` and anything else
-holding the port, prompting first unless `-y`/`-k` was given.
+Before starting, the script always checks the selected port for a running
+server, including one that is already ready. When it finds one it asks whether
+to use it and continue (the default), kill it and start fresh, or abort. `-y`
+keeps a ready server (and clears a stale, not-ready one); `-k`/`--restart`
+replace it without asking. The check is scoped to the selected port, so a
+`splash serve` on another port is left alone. Anything else holding the port is
+treated as a stale holder and prompts to be stopped.
 
 ### Splash output
 
